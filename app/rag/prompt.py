@@ -12,19 +12,29 @@ _TONE = {
 }
 
 
+def _clean(value, max_len: int) -> str:
+    """Strip control chars/newlines, collapse whitespace, neutralise angle brackets, cap."""
+    s = "".join(" " if (ch.isspace() or not ch.isprintable()) else ch for ch in str(value))
+    s = s.replace("<", "").replace(">", "")
+    return " ".join(s.split())[:max_len].strip()
+
+
+def _esc(text: str) -> str:
+    return str(text).replace("<", "&lt;").replace(">", "&gt;")
+
+
 def build_system_prompt(profile, language: str | None) -> str:
     lang = normalize_language(language)
     parts = [t("persona", lang), t("language_directive", lang), t("scope", lang),
-             t("grounding", lang), t("referral", lang), t("abortion_legal", lang)]
+             t("grounding", lang), t("data_boundary", lang), t("referral", lang), t("abortion_legal", lang)]
     band = getattr(profile, "age_band", None)
     parts.append(t(_TONE.get(band, "tone_default"), lang))
     if profile is not None:
-        if getattr(profile, "nickname", None):
-            parts.append(t("address", lang, nickname=profile.nickname))
-        if getattr(profile, "pronouns", None):
-            parts.append(t("pronouns", lang, pronouns=profile.pronouns))
-        if getattr(profile, "tone_pref", None):
-            parts.append(t("tone_pref", lang, tone_pref=profile.tone_pref))
+        for attr, key, cap in (("nickname", "address", 40), ("pronouns", "pronouns", 20),
+                               ("tone_pref", "tone_pref", 40)):
+            val = _clean(getattr(profile, attr, None) or "", cap)
+            if val:
+                parts.append(t(key, lang, **{attr: val}))
     return "\n\n".join(parts)
 
 
@@ -35,8 +45,10 @@ def _format_context(retrieval: RetrievalResult, lang: str) -> str:
     for i, c in enumerate(retrieval.chunks, 1):
         page = c.meta.get("page") if c.meta else None
         ref = f"{t('source_label', lang)}: {c.title}" + (f", p.{page}" if page else "")
-        blocks.append(f"[S{i}] ({ref}; doc={c.document_id})\n{c.content}")
-    return t("context_header", lang) + "\n\n" + "\n\n".join(blocks)
+        blocks.append(f'<source id="S{i}" ref="{_esc(ref)}" doc="{c.document_id}">\n'
+                      f"{_esc(c.content)}\n</source>")
+    return (t("context_header", lang) + "\n<context>\n" + "\n".join(blocks)
+            + "\n</context>")
 
 
 def assemble(query: str, retrieval: RetrievalResult, history: list[dict], profile,

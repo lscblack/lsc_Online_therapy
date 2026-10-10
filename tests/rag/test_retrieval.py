@@ -104,3 +104,9 @@ async def test_only_approved_retrieved(session):
     await _doc(session, "ok", [T_FP])
     r = await retrieve(session, T_FP)
     assert [c.title for c in r.chunks] == ["ok"]
+
+
+async def test_recognised_language_zero_rows_falls_back_unfiltered(session):
+    await _doc(session, "EN only", [T_FP], language="en")
+    r = await retrieve(session, T_FP, language="rw")  # rw recognised, 0 rw rows
+    assert [c.content for c in r.chunks] == [T_FP] and r.in_knowledge is True
