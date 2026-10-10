@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import current_user, require_role
 from app.core.config import get_settings
-from app.core.db import get_sessionmaker
+from app.core.db import get_engine, get_sessionmaker
 from app.core.security import (
     TokenExpiredError,
     TokenInvalidError,
@@ -36,6 +36,13 @@ def schema():
     _alembic("upgrade", "head")
     yield
     _alembic("downgrade", "base")
+
+
+@pytest.fixture(autouse=True)
+async def _fresh_pool(schema):
+    # Other modules drop/recreate the schema; discard pooled connections with stale type OIDs.
+    await get_engine().dispose()
+    yield
 
 
 @pytest.fixture
