@@ -47,6 +47,8 @@ def upgrade() -> None:
         "users",
         _pk(),
         sa.Column("anon_id", sa.String(128), nullable=False),
+        sa.Column("email", sa.String(320)),
+        sa.Column("password_hash", sa.String(255)),
         sa.Column("role", _enum("user_role"), nullable=False, server_default="user"),
         sa.Column("is_upgraded", sa.Boolean, nullable=False, server_default=sa.text("false")),
         sa.Column("recovery_hash", sa.String(255)),
@@ -54,6 +56,7 @@ def upgrade() -> None:
         sa.Column("disabled", sa.Boolean, nullable=False, server_default=sa.text("false")),
         _ts("created_at", nullable=False, server_default=sa.func.now()),
         _ts("last_seen_at"),
+        sa.UniqueConstraint("email", name="users_email_key"),
     )
     op.create_index("ix_users_anon_id", "users", ["anon_id"], unique=True)
 

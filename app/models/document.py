@@ -4,7 +4,9 @@ from datetime import datetime
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import (
+    DateTime, Enum, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,6 +30,9 @@ class ReviewStatus(enum.StrEnum):
 
 class Document(Base):
     __tablename__ = "documents"
+    __table_args__ = (
+        Index("ix_documents_topic_tags_gin", "topic_tags", postgresql_using="gin"),
+    )
 
     id: Mapped[uuid.UUID] = uuid_pk()
     title: Mapped[str] = mapped_column(String(512))
@@ -51,7 +56,16 @@ class Document(Base):
 
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
-    __table_args__ = (UniqueConstraint("document_id", "chunk_index", name="uq_chunk_doc_index"),)
+    __table_args__ = (
+        UniqueConstraint("document_id", "chunk_index", name="uq_chunk_doc_index"),
+        Index(
+            "ix_document_chunks_embedding_hnsw", "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+        Index("ix_document_chunks_metadata_gin", "metadata", postgresql_using="gin"),
+    )
 
     id: Mapped[uuid.UUID] = uuid_pk()
     document_id: Mapped[uuid.UUID] = mapped_column(

@@ -19,6 +19,8 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = uuid_pk()
     anon_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    email: Mapped[str | None] = mapped_column(String(320), unique=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255))
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role"), default=UserRole.user,
         server_default=UserRole.user.value)
