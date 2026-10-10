@@ -16,6 +16,7 @@ dependencies = [
   "sentence-transformers",
   "cryptography",
   "pyjwt",
+  "argon2-cffi",
 ]
 
 [project.optional-dependencies]

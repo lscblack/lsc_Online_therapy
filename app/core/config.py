@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     tts_provider: str = "openrouter"
     encryption_key: str = ""
     jwt_secret: str = ""
+    jwt_algorithm: str = "HS256"
+    access_token_ttl_min: int = 15
+    refresh_token_ttl_days: int = 30
     retention_days: int = 30
     retrieval_min_score: float = 0.3
 
