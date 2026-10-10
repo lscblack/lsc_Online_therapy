@@ -5,6 +5,7 @@ Streaming approach (safety over latency): `stream()` runs the SAME full pipeline
 answer in small chunks. No raw model token is ever sent to the client, so an ungrounded/sensitive/
 unsafe answer can never be streamed; crisis turns never touch the model at all.
 """
+import logging
 import re
 import uuid
 from collections.abc import AsyncIterator
@@ -24,6 +25,7 @@ from app.safety.referrals import lookup
 from app.safety.triage import Category, Triage, classify, referral_category_for
 from app.services.profile import ProfileService
 
+logger = logging.getLogger(__name__)
 HISTORY_LIMIT = 10
 _CRISIS_COPY = {Category.crisis_self_harm: "crisis_self_harm",
                 Category.gbv_sexual_violence: "crisis_gbv",
@@ -88,9 +90,23 @@ class ChatService:
     async def _generate(self, messages: list[dict]) -> str:
         return "".join([c async for c in self.llm.stream_chat(messages)]).strip()
 
+    async def _referrals(self, triage: Triage) -> list:
+        try:
+            return await lookup(self.session, referral_category_for(triage.category))
+        except Exception as exc:  # noqa: BLE001 - a catalog failure must not remove the next step
+            logger.warning("referral lookup failed (%s); using generic fallback", type(exc).__name__)
+            await self.session.rollback()
+            return []
+
+    async def _degraded(self, triage: Triage, lang: str) -> _Outcome:
+        refs = await self._referrals(triage)
+        answer = guard.ensure_referral(t("disclaimer", lang), triage, refs, language=lang, force=True)
+        return _Outcome(answer, [], {"crisis": False, "needs_referral": True, "in_knowledge": None,
+                                     "guard_reason": "provider_error"})
+
     async def _crisis(self, triage: Triage, lang: str) -> _Outcome:
         copy = t(_CRISIS_COPY.get(Category(triage.category), "crisis_self_harm"), lang)
-        refs = await lookup(self.session, referral_category_for(triage.category))
+        refs = await self._referrals(triage)
         answer = guard.ensure_referral(copy, triage, refs, language=lang, force=True)
         return _Outcome(answer, [], {"crisis": True, "needs_referral": True, "in_knowledge": None})
 
@@ -100,14 +116,19 @@ class ChatService:
             return _Outcome(t("out_of_scope", lang), [],
                             {"crisis": False, "needs_referral": False, "in_knowledge": None,
                              "guard_reason": "out_of_scope"})
-        retrieval = await retrieve(self.session, message, lang)
-        profile = await ProfileService(self.session).get(user)
-        raw = await self._generate(assemble(message, retrieval, history, profile, lang))
+        try:
+            retrieval = await retrieve(self.session, message, lang)
+            profile = await ProfileService(self.session).get(user)
+            raw = await self._generate(assemble(message, retrieval, history, profile, lang))
+        except Exception as exc:  # noqa: BLE001 - provider/DB failure degrades to a safe referral
+            logger.error("chat retrieval/generation failed (%s); degrading", type(exc).__name__)
+            await self.session.rollback()
+            return await self._degraded(triage, lang)
         g = guard.ground(raw, retrieval, language=lang, category=triage)
         answer = g.answer
         sensitive = guard.is_sensitive(triage)
         if g.needs_referral or sensitive:
-            refs = await lookup(self.session, referral_category_for(triage.category))
+            refs = await self._referrals(triage)
             answer = guard.ensure_referral(answer, triage, refs, language=lang,
                                            force=g.needs_referral)
         return _Outcome(answer, _citations(g.answer, retrieval) if g.allowed else [],
@@ -116,6 +137,9 @@ class ChatService:
 
     async def respond(self, user: User, message: str, conversation_id: uuid.UUID | None = None,
                       language: str | None = None) -> ChatResult:
+        if not message or not message.strip():
+            raise ValueError("message must not be empty")
+        message = message.strip()
         conv = None
         if conversation_id is not None:
             conv = await self.repo.get_conversation(conversation_id, user)
@@ -130,12 +154,24 @@ class ChatService:
         flags = {**out.flags, "category": str(triage.category), "in_scope": triage.in_scope,
                  "flags": sorted(triage.flags), "triage_source": triage.source}
 
-        if conv is None:
-            conv = await self.repo.create_conversation(user, "text", lang)
-        await self.repo.add_message(conv.id, "user", message, [], {})
-        await self.repo.add_message(conv.id, "assistant", out.answer, out.citations, flags)
-        await self.session.commit()
-        return ChatResult(out.answer, out.citations, conv.id, flags, lang)
+        best_effort = triage.is_crisis or flags.get("guard_reason") == "provider_error"
+        cid = conv.id if conv else None
+        try:
+            if conv is None:
+                conv = await self.repo.create_conversation(user, "text", lang)
+                cid = conv.id
+            await self.repo.add_message(conv.id, "user", message, [], {})
+            await self.repo.add_message(conv.id, "assistant", out.answer, out.citations, flags)
+            await self.session.commit()
+        except Exception as exc:  # noqa: BLE001
+            if not best_effort:
+                raise
+            # Never turn a crisis / degraded safety answer into a 500 because of a DB write.
+            logger.error("chat persistence failed (%s); returning answer unsaved", type(exc).__name__)
+            await self.session.rollback()
+            cid = uuid.uuid4()
+            flags["persisted"] = False
+        return ChatResult(out.answer, out.citations, cid, flags, lang)
 
     async def stream(self, user: User, message: str, conversation_id: uuid.UUID | None = None,
                      language: str | None = None) -> AsyncIterator[dict[str, Any]]:

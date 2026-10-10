@@ -157,3 +157,83 @@ async def test_response_language_honored(session, user):
     # out-of-knowledge disclaimer follows the language too
     r = await ChatService(session, llm=FakeLLM(["x"])).respond(user, "Ibibazo bidasanzwe?", language="rw")
     assert t("disclaimer", "rw") in r.answer and t("referral_fallback", "rw") in r.answer
+
+
+class _BoomLLM(FakeLLM):
+    async def stream_chat(self, messages, **opts):
+        self.calls.append(messages)
+        raise RuntimeError("provider down")
+        yield ""  # pragma: no cover
+
+
+async def test_provider_failure_degrades_to_referral(session, user, monkeypatch):
+    import app.services.chat as chat_mod
+    await _doc(session, "FP Guide", [T_FP])
+    # normal turn: generation raises
+    r = await ChatService(session, llm=_BoomLLM()).respond(user, T_FP, language="en")
+    assert t("disclaimer", "en") in r.answer and t("referral_fallback", "en") in r.answer
+    assert r.safety_flags["guard_reason"] == "provider_error" and r.safety_flags["needs_referral"]
+    # sensitive turn: retrieval raises
+    async def boom(*a, **k):
+        raise RuntimeError("embeddings down")
+    monkeypatch.setattr(chat_mod, "retrieve", boom)
+    r = await ChatService(session, llm=FakeLLM(["x"])).respond(
+        user, "Can I get HIV from kissing?", language="en")
+    assert r.safety_flags["category"] == "hiv_sti"
+    assert t("disclaimer", "en") in r.answer and t("referral_fallback", "en") in r.answer
+
+
+async def test_llm_escalated_crisis_bypasses_rag(session, user, monkeypatch):
+    import app.services.chat as chat_mod
+
+    async def boom(*a, **k):
+        raise AssertionError("retrieval must not run")
+
+    monkeypatch.setattr(chat_mod, "retrieve", boom)
+    llm = FakeLLM(["crisis_self_harm"])
+    r = await ChatService(session, llm=llm).respond(user, "hello, how are you today", language="en")
+    assert r.safety_flags["crisis"] is True and r.safety_flags["triage_source"] == "llm"
+    assert t("crisis_self_harm", "en") in r.answer and t("referral_fallback", "en") in r.answer
+    assert len(llm.calls) == 1  # triage only; no answer generation
+
+
+async def test_out_of_scope_short_circuit(session, user, monkeypatch):
+    import app.services.chat as chat_mod
+
+    async def boom(*a, **k):
+        raise AssertionError("retrieval must not run")
+
+    monkeypatch.setattr(chat_mod, "retrieve", boom)
+    llm = FakeLLM(["out_of_scope"])
+    r = await ChatService(session, llm=llm).respond(
+        user, "hello, how are you today", language="en")
+    assert r.answer == t("out_of_scope", "en") and r.safety_flags["in_scope"] is False
+    assert len(llm.calls) == 1  # triage only
+
+
+async def test_dosage_answer_gets_refusal_and_referral(session, user):
+    await _doc(session, "FP Guide", [T_FP])
+    llm = FakeLLM(["Take 4 pills of misoprostol under the tongue [S1]."])
+    r = await ChatService(session, llm=llm).respond(user, T_FP, language="en")
+    assert "misoprostol" not in r.answer.lower()
+    assert t("referral_fallback", "en") in r.answer
+    assert r.safety_flags["guard_reason"] == "unsafe_dosage" and r.safety_flags["needs_referral"]
+
+
+async def test_blank_message_rejected(client, session, user):
+    with pytest.raises(ValueError):
+        await ChatService(session, llm=FakeLLM()).respond(user, "   ")
+    a = (await client.post("/v1/identity/anon")).json()
+    h = {"Authorization": f"Bearer {a['access_token']}"}
+    assert (await client.post("/v1/chat", json={"message": "  "}, headers=h)).status_code == 422
+
+
+async def test_crisis_survives_persistence_failure(session, user, monkeypatch):
+    svc = ChatService(session, llm=FakeLLM())
+
+    async def fail(*a, **k):
+        raise RuntimeError("db write failed")
+
+    monkeypatch.setattr(svc.repo, "create_conversation", fail)
+    r = await svc.respond(user, "I want to kill myself", language="en")
+    assert t("crisis_self_harm", "en") in r.answer and r.safety_flags["persisted"] is False
