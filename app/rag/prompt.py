@@ -1,15 +1,7 @@
 """System prompt + OpenAI-style message assembly. Pure functions, no I/O."""
 from app.core.i18n import normalize_language, t
-from app.models.profile import AgeBand
 from app.rag.retrieval import RetrievalResult
-
-_TONE = {
-    AgeBand.under15: "tone_under15",
-    AgeBand.age_15_17: "tone_teen",
-    AgeBand.age_18_19: "tone_teen",
-    AgeBand.age_20_24: "tone_adult",
-    AgeBand.age_25_plus: "tone_adult",
-}
+from app.safety.policy import tone_for
 
 
 def _clean(value, max_len: int) -> str:
@@ -28,7 +20,7 @@ def build_system_prompt(profile, language: str | None) -> str:
     parts = [t("persona", lang), t("language_directive", lang), t("scope", lang),
              t("grounding", lang), t("data_boundary", lang), t("referral", lang), t("abortion_legal", lang)]
     band = getattr(profile, "age_band", None)
-    parts.append(t(_TONE.get(band, "tone_default"), lang))
+    parts.append(tone_for(band, lang))
     if profile is not None:
         for attr, key, cap in (("nickname", "address", 40), ("pronouns", "pronouns", 20),
                                ("tone_pref", "tone_pref", 40)):

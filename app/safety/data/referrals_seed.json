@@ -1,0 +1,12 @@
+{
+  "_note": "PLACEHOLDER DATA ONLY. Every entry is unverified and contains no real contact details. Replace with HDI-verified referrals (names, numbers, districts, languages) before any production use; set verified=true only after HDI verification.",
+  "referrals": [
+    {"category": "crisis", "name": "National mental health / crisis helpline (placeholder)", "contact": "PLACEHOLDER-CONTACT-TBD-HDI", "district": null, "languages": ["rw", "en"], "verified": false, "note": "Needs verification by HDI"},
+    {"category": "crisis", "name": "Nearest hospital mental health service (placeholder)", "contact": "PLACEHOLDER-CONTACT-TBD-HDI", "district": null, "languages": ["rw", "en"], "verified": false, "note": "Needs verification by HDI"},
+    {"category": "gbv", "name": "Isange One Stop Centre (placeholder entry)", "contact": "PLACEHOLDER-CONTACT-TBD-HDI", "district": null, "languages": ["rw", "en"], "verified": false, "note": "Needs verification by HDI; add per-district centres"},
+    {"category": "gbv", "name": "GBV support helpline (placeholder)", "contact": "PLACEHOLDER-CONTACT-TBD-HDI", "district": null, "languages": ["rw", "en"], "verified": false, "note": "Needs verification by HDI"},
+    {"category": "emergency", "name": "Emergency medical services (placeholder)", "contact": "PLACEHOLDER-CONTACT-TBD-HDI", "district": null, "languages": ["rw", "en"], "verified": false, "note": "Needs verification by HDI"},
+    {"category": "clinic", "name": "Youth-friendly health service (placeholder)", "contact": "PLACEHOLDER-CONTACT-TBD-HDI", "district": null, "languages": ["rw", "en"], "verified": false, "note": "Needs verification by HDI; add per-district clinics"},
+    {"category": "clinic", "name": "Nearest health centre / hospital (placeholder)", "contact": "PLACEHOLDER-CONTACT-TBD-HDI", "district": null, "languages": ["rw", "en"], "verified": false, "note": "Needs verification by HDI"}
+  ]
+}

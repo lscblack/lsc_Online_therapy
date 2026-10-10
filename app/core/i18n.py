@@ -98,6 +98,90 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "question_header": {"en": "Question:", "rw": "Ikibazo:"},
     "source_label": {"en": "Source", "rw": "Inkomoko"},
+    # --- Safety copy (Task 8). RW strings need review by a native-speaking SRHR/mental-health expert. ---
+    "crisis_self_harm": {
+        "en": ("I'm really sorry you are going through this, and I'm glad you told me. You are not "
+               "alone and your life matters. Please reach out right now to someone you trust, or go "
+               "to the nearest health facility or call a helpline so a trained person can support "
+               "you. If you are in immediate danger, ask someone near you to stay with you."),
+        "rw": ("Mbabajwe cyane n'ibyo urimo unyuramo, kandi nishimiye ko wabimbwiye. Nturi wenyine, "
+               "kandi ubuzima bwawe bufite agaciro. Nyabuneka baza ubu umuntu wizeye, cyangwa ujye "
+               "ku ivuriro riri hafi, cyangwa uhamagare numero y'ubufasha kugira ngo ufashwe n'umuntu "
+               "wabihuguriwe. Niba uri mu kaga ako kanya, saba umuntu uri hafi yawe kuguma iruhande rwawe."),
+    },
+    "crisis_gbv": {
+        "en": ("I'm so sorry this happened to you. It is not your fault, and you deserve care and "
+               "safety. You can get free, confidential help: the Isange One Stop Centre at a hospital "
+               "offers medical care, counselling and support. If you can, go as soon as possible "
+               "(medical care works best within 72 hours) and try not to wash or change clothes, "
+               "but go whenever you are ready. Please tell a trusted adult."),
+        "rw": ("Mbabajwe cyane n'ibyakubayeho. Si wowe nyirabayazana, kandi ukwiye kwitabwaho no kurindwa. "
+               "Ushobora kubona ubufasha ku buntu kandi mu ibanga: Isange One Stop Centre iri ku bitaro "
+               "itanga ubuvuzi, inama n'ubufasha. Niba bishoboka, genda vuba bishoboka (ubuvuzi bukora "
+               "neza mu masaha 72) kandi gerageza kutiyuhagira cyangwa guhindura imyenda, ariko ujyayo "
+               "igihe wiyumva witeguye. Nyabuneka bimenyeshe umuntu mukuru wizewe."),
+    },
+    "crisis_medical": {
+        "en": ("This sounds like it could be an emergency. Please go to the nearest hospital or health "
+               "centre right now, or ask someone near you to take you or call for emergency help. "
+               "Do not wait. I cannot diagnose or treat you, but a health worker can help immediately."),
+        "rw": ("Ibi bishobora kuba ari ibyihutirwa. Nyabuneka jya ku bitaro cyangwa ku kigo nderabuzima "
+               "kiri hafi ubu nyine, cyangwa saba umuntu uri hafi yawe kukujyana cyangwa guhamagara "
+               "ubutabazi. Ntutegereze. Sinshobora kugusuzuma cyangwa kukuvura, ariko umuganga "
+               "ashobora kugufasha vuba."),
+    },
+    "referral_intro": {
+        "en": "You can get help here:",
+        "rw": "Hari aho wabona ubufasha:",
+    },
+    "referral_unverified": {
+        "en": "contact details are being confirmed",
+        "rw": "nomero zirimo kwemezwa",
+    },
+    "referral_fallback": {
+        "en": ("Please visit your nearest health centre or hospital and talk to a health worker. "
+               "For violence, the Isange One Stop Centre at a hospital can help."),
+        "rw": ("Nyabuneka jya ku kigo nderabuzima cyangwa ku bitaro biri hafi yawe uganire "
+               "n'umuganga. Ku ihohoterwa, Isange One Stop Centre iri ku bitaro ishobora kugufasha."),
+    },
+    "disclaimer": {
+        "en": ("I don't have verified information to answer this safely, and I don't want to guess. "
+               "Please talk to a doctor or visit a health facility, or a youth-friendly health service, "
+               "who can give you advice that fits your situation."),
+        "rw": ("Nta makuru yemejwe mfite yo gusubiza ibi mu buryo butekanye, kandi sinshaka kuvuga "
+               "ibyo ntazi. Nyabuneka baza muganga cyangwa ujye ku ivuriro, cyangwa kuri serivisi "
+               "yita ku rubyiruko, bakugire inama ijyanye n'ibyawe."),
+    },
+    "disclaimer_prefix": {
+        "en": ("Note: I could not fully verify this against approved health sources, so please "
+               "confirm with a doctor or health facility."),
+        "rw": ("Icyitonderwa: Sinabashije kubihamya byuzuye mu masoko y'ubuzima yemewe, nyabuneka "
+               "ubibaze muganga cyangwa ku ivuriro."),
+    },
+    "self_treatment_refusal": {
+        "en": ("I can't give instructions on medicines, doses or ways to treat or end a pregnancy "
+               "yourself, because it can be dangerous. Please see a doctor or visit a health facility "
+               "(a clinician) who can assess you safely and confidentially."),
+        "rw": ("Sinshobora gutanga amabwiriza ku miti, ingano yayo cyangwa uburyo bwo kwivura cyangwa "
+               "kwikuramo inda wenyine, kuko bishobora guteza ibyago. Nyabuneka reba muganga cyangwa "
+               "ujye ku ivuriro, bakwisuzume mu buryo butekanye kandi mu ibanga."),
+    },
+    "eligibility_notice": {
+        "en": ("I can't decide whether you are legally eligible for an abortion. Rwandan law allows it "
+               "only in specific circumstances, and a qualified health provider must do a professional "
+               "assessment. Please visit a health facility or provider to talk it through confidentially."),
+        "rw": ("Sinshobora kwemeza niba wemerewe n'amategeko gukuramo inda. Itegeko ry'u Rwanda ribyemera "
+               "mu bihe byihariye gusa, kandi umuganga w'inzobere agomba kugusuzuma. Nyabuneka jya ku "
+               "ivuriro cyangwa ubaze umuganga muganire mu ibanga."),
+    },
+    "out_of_scope": {
+        "en": ("I'm here to help with sexual and reproductive health questions, so I can't help with "
+               "that one. For schoolwork or other topics, please ask a teacher or someone at school. "
+               "If you have a health question, I'm happy to help."),
+        "rw": ("Ndi hano gufasha ku bibazo by'ubuzima bw'imyororokere, ntabwo rero nshobora kugufasha kuri "
+               "iki. Ku masomo cyangwa ibindi, baza mwarimu cyangwa umuntu wo ku ishuri. "
+               "Niba ufite ikibazo cy'ubuzima, nishimira kugufasha."),
+    },
 }
 
 
