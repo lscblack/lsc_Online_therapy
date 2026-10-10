@@ -1,0 +1,31 @@
+[project]
+name = "ubuzima"
+version = "0.1.0"
+description = "Ubuzima: AI SRHR health-info navigator backend"
+requires-python = ">=3.13"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "sqlalchemy[asyncio]>=2.0",
+  "asyncpg",
+  "alembic",
+  "pydantic-settings",
+  "pgvector",
+  "httpx",
+  # later tasks
+  "sentence-transformers",
+  "cryptography",
+  "pyjwt",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "pytest-cov"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
