@@ -17,10 +17,11 @@ dependencies = [
   "cryptography",
   "pyjwt",
   "argon2-cffi",
+  "pypdf",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "respx"]
+dev = ["reportlab", "pytest", "pytest-asyncio", "pytest-cov", "respx"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

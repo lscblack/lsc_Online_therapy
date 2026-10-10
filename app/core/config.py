@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     refresh_token_ttl_days: int = 30
     retention_days: int = 30
     retrieval_min_score: float = 0.3
+    storage_dir: str = "./var/uploads"
 
 
 @lru_cache
