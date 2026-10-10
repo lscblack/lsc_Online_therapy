@@ -27,7 +27,8 @@ class ReferralRepository:
     async def upsert(self, *, category: str, name: str, contact: str,
                      district: str | None = None, languages: list[str] | None = None,
                      verified_at=None) -> Referral:
-        """Idempotent on (category, name, district)."""
+        """Idempotent on (category, name, district). A row with verified_at set is NEVER
+        modified (seed data must not clobber HDI-verified contacts)."""
         stmt = select(Referral).where(Referral.category == category, Referral.name == name)
         stmt = stmt.where(Referral.district.is_(None) if district is None
                           else Referral.district == district)
@@ -36,7 +37,7 @@ class ReferralRepository:
             row = Referral(category=category, name=name, contact=contact, district=district,
                            languages=languages or [], verified_at=verified_at)
             self.session.add(row)
-        else:
+        elif row.verified_at is None:
             row.contact, row.languages, row.verified_at = contact, languages or [], verified_at
         await self.session.flush()
         return row

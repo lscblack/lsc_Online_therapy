@@ -66,8 +66,8 @@ async def test_llm_can_escalate_to_crisis():
 
 
 async def test_llm_garbage_label_is_ignored():
-    t = await classify("how do condoms work", "en", llm=FakeLLM(["Hello from fake."]))
-    assert t.category == "contraception" and not t.is_crisis
+    t = await classify("what is puberty", "en", llm=FakeLLM(["Hello from fake."]))
+    assert t.category == "in_scope_srhr" and not t.is_crisis
 
 
 async def test_llm_prompt_fences_user_text():
@@ -117,3 +117,33 @@ async def test_flags():
 def test_triage_is_dataclass():
     t = Triage(category="in_scope_srhr", is_crisis=False, in_scope=True)
     assert t.flags == frozenset()
+
+
+async def test_llm_not_called_when_rules_confident():
+    llm = FakeLLM(["out_of_scope"])
+    t = await classify("How do condoms work?", "en", llm=llm)
+    assert t.category == "contraception" and llm.calls == []
+
+
+async def test_distress_cue_never_out_of_scope():
+    t = await classify("a boy at my math class keeps scaring me", "en", llm=FakeLLM(["out_of_scope"]))
+    assert t.in_scope and t.category != "out_of_scope" and t.sensitive
+
+
+async def test_llm_failure_is_logged(caplog):
+    class Boom:
+        async def stream_chat(self, messages, **opts):
+            raise RuntimeError("secret-token-123")
+            yield ""
+
+    with caplog.at_level("WARNING"):
+        t = await classify("what is puberty", "en", llm=Boom())
+    assert t.category == "in_scope_srhr"
+    assert any("triage LLM" in r.message for r in caplog.records)
+    assert "secret-token-123" not in caplog.text
+
+
+async def test_long_input_bounded_and_crisis_in_tail_found():
+    text = ("hello " * 5000) + "I want to kill myself"
+    t = await classify(text, "en", use_llm=False)
+    assert t.is_crisis

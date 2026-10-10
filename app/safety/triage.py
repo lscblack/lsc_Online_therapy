@@ -13,12 +13,13 @@ MUST be reviewed/expanded by Kinyarwanda-speaking SRHR/mental-health experts (di
 spelling variants, slang, code-switching) before production.
 """
 import asyncio
+import logging
 import re
 import unicodedata
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from app.core.i18n import recognised_language
+logger = logging.getLogger(__name__)
 
 
 class Category(StrEnum):
@@ -41,6 +42,7 @@ CRISIS_CATEGORIES = frozenset({Category.crisis_self_harm, Category.gbv_sexual_vi
 # Flags
 SELF_TREATMENT = "self_treatment"
 ELIGIBILITY = "eligibility_question"
+DISTRESS_CUE = "distress_cue"
 
 # Referral catalog category per triage category (consumed by Task 9 -> referrals.lookup)
 REFERRAL_CATEGORY = {
@@ -86,7 +88,9 @@ def _rx(*patterns: str) -> re.Pattern:
 # ---- Crisis rules (checked in this order: self-harm, GBV, emergency) ----
 _SELF_HARM = _rx(
     # English
-    r"\bsuicid", r"\bkill(ing)? (my ?self|me)\b", r"\bend(ing)? (my (own )?life|it all)\b", r"\btake my (own )?life\b", r"\bwant(ed)? to die\b", r"\bwanna die\b",
+    r"\bsuicid", r"\bkill(ing)? (my ?self|me)\b", r"\bend(ing)? (my (own )?life|it all)\b", r"\btake my (own )?life\b", r"\bwant(ed)? to die\b", r"\bwanna die\b", r"\bend it\b(?! with)", r"\bkill(ed|ing)? (my ?self)\b",
+    r"\bwish (i|that i) (was|were|am) (dead|never born)\b", r"\bwish i (could )?(die|was not alive)\b",
+    r"\b(took|taking|take|swallowed) (some |a lot of |many |all my |my )?(pills|tablets)\b.{0,25}\b(die|end it|kill)\b",
     r"\b(do ?n'?t|do not|dont) want to (live|be alive|exist)\b", r"\bno reason to live\b",
     r"\bbetter off dead\b", r"\bself[- ]?harm", r"\b(cut|cutting|hurt|hurting|harm|harming) (my ?self)\b",
     r"\bhang (my ?self)\b", r"\boverdose on purpose\b", r"\bwant to disappear forever\b",
@@ -100,18 +104,20 @@ _GBV = _rx(
     r"\braped\b", r"\brape\b", r"\braping\b", r"\bsexual(ly)? (assault|abus|violen|harass)",
     r"\bmolest", r"\bdefile", r"\bincest", r"\bforced (me )?(to )?(have )?sex\b", r"\bforced me\b",
     r"\bmade me have sex\b", r"\bsex against my will\b", r"\b(he|she|they|someone|my \w+) (beats|hits|abuses|abused|hurts|touched) me\b",
-    r"\btouched me (without|against)\b", r"\bdomestic (violence|abuse)\b", r"\bgender[- ]based violence\b",
+    r"\btouch(ing|ed|es)? me\b", r"\bkeeps? touching\b", r"\btouch(ing|ed|es)? my (private|body|breast|thigh|chest)", r"\bdomestic (violence|abuse)\b", r"\bgender[- ]based violence\b",
     r"\bsexually (abused|assaulted)\b",
     # Kinyarwanda (seed; needs expert expansion)
     r"gufata ku ngufu", r"\b(yamfashe|baramfashe|yaramfashe|bamfashe) ku ngufu\b", r"ku ngufu",
     r"sambanyij", r"narasambanyijwe", r"gusambanywa", r"gusambanya", r"ihohotera", r"yarampohoteye",
     r"yampohoteye", r"\bndahohoterwa\b", r"\bbarampohoteye\b", r"\bankubita\b", r"\bnkubitwa\b",
-    r"\bnahohotewe\b", r"\byanshukiranyije\b",
+    r"\bnahohotewe\b", r"\bankoraho\b", r"\bankora ku mubiri\b", r"\byanshukiranyije\b",
 )
 _EMERGENCY = _rx(
     # English
     r"\bbleeding (a lot|heavily|badly|too much|profusely|non ?stop)\b", r"\bheavy bleeding\b",
-    r"\bbleed(ing)? (heavily|a lot)\b", r"\bbleeding (and|won'?t|will not) (stop|feel)\b",
+    r"\bbleed(ing)? (heavily|a lot)\b", r"\bbleeding\b.{0,15}\b(won'?t|will not|doesn'?t|does not|not) (stop|slow|ease)\b",
+    r"\bsoak(ing|ed|s)? (through )?(a |my |the |two |three |\d+ )?(pads?|tampons?|clothes|sheets)\b",
+    r"\b(pad|pads) (every|each) (hour|30 minutes)\b",
     r"\b(can'?t|cannot|can not|cant) breathe\b", r"\bunconscious\b", r"\blost consciousness\b",
     r"\bpassed out\b", r"\bfaint(ed|ing)?\b", r"\bsevere (abdominal |stomach |belly )?pain\b",
     r"\bectopic\b", r"\bseizure", r"\bpoison", r"\boverdos", r"\b(medical )?emergency (room|now|help)\b", r"\bit'?s an emergency\b",
@@ -119,6 +125,15 @@ _EMERGENCY = _rx(
     r"kuva amaraso menshi", r"\bamaraso menshi\b", r"\bntabasha guhumeka\b", r"\bnta mwuka\b",
     r"\bnataye ubwenge\b", r"\bataye ubwenge\b", r"\bububabare bukabije\b", r"\bndimo gupfa\b",
     r"\bnkeneye ubutabazi\b", r"\bibyihutirwa\b", r"\bndi hafi gupfa\b",
+)
+
+# Weaker distress/abuse cues: never a crisis on their own, but they forbid an out_of_scope
+# brush-off (crisis/abuse must never be treated as off-topic).
+_DISTRESS_CUE = _rx(
+    r"\btouch", r"\bhurt", r"\bhit(s|ting)? me\b", r"\bbeat", r"\babus", r"\bscar(e|ed|es|ing)\b", r"\bfrighten", r"\bafraid\b",
+    r"\bunsafe\b", r"\bthreat", r"\bblackmail", r"\bforce[sd]?\b", r"\bbleed", r"\bdie\b", r"\bdead\b",
+    r"\bhopeless\b", r"\bkill\b", r"\bharass", r"\bstalk", r"\bsecret(ly)?\b.{0,20}\b(sex|touch)",
+    r"ubwoba", r"mpfuye", r"\bndatinya\b", r"\bankorera\b", r"ntabwo nishimye",
 )
 
 # ---- Topic rules ----
@@ -178,8 +193,14 @@ def _first_topic(n: str) -> Category | None:
     return None
 
 
+_MAX_RULE_CHARS = 4000
+
+
 def classify_rules(text: str) -> Triage:
     n = _norm(text)
+    if len(n) > _MAX_RULE_CHARS:  # bound regex work; still scan head AND tail for crisis terms
+        half = _MAX_RULE_CHARS // 2
+        n = n[:half] + " " + n[-half:]
     flags: set[str] = set()
     if _SELF_HARM.search(n):
         return Triage(Category.crisis_self_harm, True, True, source="rules")
@@ -198,6 +219,8 @@ def classify_rules(text: str) -> Triage:
         return Triage(topic, False, True, frozenset(flags), "rules")
     if flags:
         return Triage(Category.in_scope_srhr, False, True, frozenset(flags), "rules")
+    if _DISTRESS_CUE.search(n):
+        return Triage(Category.in_scope_srhr, False, True, frozenset({DISTRESS_CUE}), "rules")
     if _OFF_TOPIC.search(n) and not _GENERAL_SRHR.search(n):
         return Triage(Category.out_of_scope, False, False, source="rules")
     return Triage(Category.in_scope_srhr, False, True, source="rules")
@@ -218,7 +241,7 @@ _LLM_TIMEOUT_S = 8.0
 
 
 async def _collect(llm, messages: list[dict]) -> str:
-    return "".join([chunk async for chunk in llm.stream_chat(messages, max_tokens=12, temperature=0)])
+    return "".join([chunk async for chunk in llm.stream_chat(messages, max_tokens=32, temperature=0)])
 
 
 def _parse_label(raw: str) -> Category | None:
@@ -239,17 +262,21 @@ async def _llm_label(text: str, llm) -> Category | None:
                     {"role": "user", "content": f"<user_message>\n{body}\n</user_message>"}]
         raw = await asyncio.wait_for(_collect(llm, messages), _LLM_TIMEOUT_S)
         return _parse_label(raw)
-    except Exception:  # noqa: BLE001 - any LLM failure must degrade to rules, never raise
+    except Exception as exc:  # noqa: BLE001 - any LLM failure must degrade to rules, never raise
+        logger.warning("triage LLM refinement failed (%s); using rules result", type(exc).__name__)
         return None
 
 
-async def classify(text: str, language: str | None = None, llm=None, use_llm: bool = True) -> Triage:
+async def classify(text: str, language: str | None = None, llm=None, use_llm: bool = True) -> Triage:  # noqa: ARG001
     """Rules first; LLM (injectable via `llm`, else the configured provider) may only escalate
     to crisis or refine a topic-less in-scope result. `language` is a hint only: rules run in
     both languages regardless so code-switched / mislabelled input is still caught."""
-    recognised_language(language)  # hint accepted; intentionally not used to narrow rules
     rules = classify_rules(text)
+    # Crisis is final. The LLM is only consulted when rules found no specific category
+    # (generic in-scope with no flags); a confident rules result is not re-litigated.
     if rules.is_crisis or not use_llm:
+        return rules
+    if rules.category != Category.in_scope_srhr or rules.flags:
         return rules
     label = await _llm_label(text, llm)
     if label is None:
@@ -257,8 +284,7 @@ async def classify(text: str, language: str | None = None, llm=None, use_llm: bo
     if label in CRISIS_CATEGORIES:
         return Triage(label, True, True, rules.flags, "llm")
     if rules.category == Category.in_scope_srhr:
-        if label == Category.out_of_scope and not rules.flags:
+        if label == Category.out_of_scope:
             return Triage(Category.out_of_scope, False, False, source="llm")
-        if label != Category.out_of_scope:
-            return Triage(label, False, True, rules.flags, "llm")
+        return Triage(label, False, True, rules.flags, "llm")
     return rules

@@ -44,6 +44,55 @@ def test_citation_to_nonexistent_source_is_unsupported():
     assert not r.allowed and r.needs_referral
 
 
+def test_dosage_number_words_and_indefinites_blocked():
+    for ans in ["Take ten pills of misoprostol [S1].", "Take a few tablets of misoprostol [S1].",
+                "Swallow seven pills to end the pregnancy [S1].", "Use several tablets [S1]; this ends a pregnancy.",
+                "Nywa ibinini icumi bya misoprostol [S1]."]:
+        r = ground(ans, GOOD, "en")
+        assert not r.allowed and r.reason == "unsafe_dosage", ans
+
+
+def test_contraceptive_pill_info_not_blocked():
+    r = ground("Take one pill daily at the same time to prevent pregnancy [S1].", GOOD, "en")
+    assert r.allowed
+
+
+def test_innocuous_you_can_not_replaced():
+    r = ground("You can ask your nurse about this [S1]. You qualify for a free check-up [S2].", GOOD, "en")
+    assert r.allowed
+
+
+def test_sensitive_uncited_is_replaced_not_prefixed():
+    r = ground("Maybe it is fine.", GOOD, "en", category="hiv_sti")
+    assert not r.allowed and "Maybe it is fine" not in r.answer and r.needs_referral
+    r2 = ground("Maybe it is fine.", GOOD, "en", category="menstrual")
+    assert "Maybe it is fine" in r2.answer
+
+
+def test_unverified_only_still_gets_fallback_step():
+    out = ensure_referral("Info.", "gbv_sexual_violence",
+                          [_ref("Placeholder GBV", "PLACEHOLDER", False)], "en")
+    assert "Placeholder GBV" in out and "PLACEHOLDER" not in out
+    assert "Isange One Stop Centre" in out and "nearest health" in out.lower()
+    assert ensure_referral(out, "gbv_sexual_violence", [_ref("Placeholder GBV", "P", False)], "en") == out
+
+
+def test_verified_referral_no_fallback_needed():
+    out = ensure_referral("Info.", "gbv", [_ref("Real Centre", "0788", True)], "en")
+    assert "Real Centre: 0788" in out and "nearest health centre" not in out.lower()
+
+
+def test_ensure_referral_accepts_both_vocabularies_triage_and_flags():
+    from app.safety.triage import Triage
+    for cat in ["crisis", "gbv", "emergency", "crisis_self_harm", "medical_emergency", "abortion"]:
+        assert ensure_referral("x", cat, [], "en") != "x", cat
+    assert ensure_referral("x", "clinic", [], "en") == "x"
+    t_ = Triage("contraception", False, True, frozenset({"self_treatment"}))
+    assert ensure_referral("x", t_, [], "en") != "x"
+    assert ensure_referral("x", "in_scope_srhr", [], "en", flags=("eligibility_question",)) != "x"
+    assert ensure_referral("x", Triage("crisis_self_harm", True, True), [], "rw") != "x"
+
+
 def test_dosage_instruction_blocked_even_when_cited():
     r = ground("Take 4 tablets of misoprostol under the tongue [S1].", GOOD, "en")
     assert not r.allowed and r.needs_referral

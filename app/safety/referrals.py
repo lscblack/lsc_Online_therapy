@@ -1,5 +1,6 @@
 """Referral catalog access + idempotent seed loader."""
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +20,6 @@ async def seed_referrals(session: AsyncSession, path: Path = SEED_PATH, commit: 
     is only set if the entry says verified=true (none do until HDI verifies them)."""
     entries = json.loads(Path(path).read_text(encoding="utf-8"))["referrals"]
     repo = ReferralRepository(session)
-    from datetime import datetime, timezone
     for e in entries:
         await repo.upsert(
             category=e["category"], name=e["name"], contact=e["contact"],

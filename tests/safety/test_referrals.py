@@ -48,3 +48,16 @@ async def test_lookup_by_category_and_district(session):
     assert await lookup(session, "nonexistent") == []
     local = await lookup(session, "clinic", district="Gasabo")
     assert local and local[0].district in ("Gasabo", None)
+
+
+async def test_reseed_does_not_clobber_verified_row(session):
+    from datetime import datetime, timezone
+    when = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    session.add(Referral(category="gbv", name="Isange One Stop Centre (placeholder entry)",
+                         contact="REAL-0788", district=None, languages=["rw"], verified_at=when))
+    await session.commit()
+    await seed_referrals(session)
+    row = (await session.execute(select(Referral).where(
+        Referral.name == "Isange One Stop Centre (placeholder entry)"))).scalar_one()
+    assert row.contact == "REAL-0788" and row.verified_at == when and row.languages == ["rw"]
+    assert len((await session.execute(select(Referral).where(Referral.category == "gbv"))).scalars().all()) == 2
