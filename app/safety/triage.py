@@ -272,18 +272,17 @@ async def classify(text: str, language: str | None = None, llm=None, use_llm: bo
     to crisis or refine a topic-less in-scope result. `language` is a hint only: rules run in
     both languages regardless so code-switched / mislabelled input is still caught."""
     rules = classify_rules(text)
-    # Crisis is final. The LLM is only consulted when rules found no specific category
-    # (generic in-scope with no flags); a confident rules result is not re-litigated.
+    # Crisis is final. For EVERY non-crisis message the LLM is consulted so it can escalate to
+    # crisis (topic/flag/distress/out_of_scope results included); it can only refine topic or
+    # out_of_scope when rules gave a bare in_scope_srhr with no flags/distress cue.
     if rules.is_crisis or not use_llm:
-        return rules
-    if rules.category != Category.in_scope_srhr or rules.flags:
         return rules
     label = await _llm_label(text, llm)
     if label is None:
         return rules
     if label in CRISIS_CATEGORIES:
         return Triage(label, True, True, rules.flags, "llm")
-    if rules.category == Category.in_scope_srhr:
+    if rules.category == Category.in_scope_srhr and not rules.flags:
         if label == Category.out_of_scope:
             return Triage(Category.out_of_scope, False, False, source="llm")
         return Triage(label, False, True, rules.flags, "llm")

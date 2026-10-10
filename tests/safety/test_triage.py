@@ -119,10 +119,38 @@ def test_triage_is_dataclass():
     assert t.flags == frozenset()
 
 
-async def test_llm_not_called_when_rules_confident():
+async def test_llm_consulted_for_topic_match_but_cannot_override_topic():
     llm = FakeLLM(["out_of_scope"])
     t = await classify("How do condoms work?", "en", llm=llm)
-    assert t.category == "contraception" and llm.calls == []
+    assert len(llm.calls) == 1 and t.category == "contraception" and t.in_scope
+
+
+async def test_llm_escalates_topic_matched_message():
+    t = await classify("I'm pregnant and I just want to disappear", "en", use_llm=False)
+    assert not t.is_crisis and t.category == "pregnancy"  # rules alone do not flag it
+    t = await classify("I'm pregnant and I just want to disappear", "en",
+                       llm=FakeLLM(["crisis_self_harm"]))
+    assert t.is_crisis and t.category == "crisis_self_harm" and t.source == "llm"
+
+
+async def test_llm_escalates_distress_cue_message():
+    t = await classify("I feel hopeless, nothing matters", "en", use_llm=False)
+    assert not t.is_crisis and "distress_cue" in t.flags
+    t = await classify("I feel hopeless, nothing matters", "en", llm=FakeLLM(["crisis_self_harm"]))
+    assert t.is_crisis
+
+
+async def test_llm_escalates_flagged_and_out_of_scope_rules_results():
+    t = await classify("how many pills to end a pregnancy", "en", llm=FakeLLM(["medical_emergency"]))
+    assert t.is_crisis and t.category == "medical_emergency"
+    t = await classify("help with my math homework", "en", llm=FakeLLM(["crisis_self_harm"]))
+    assert t.is_crisis
+
+
+async def test_llm_cannot_make_flagged_or_distress_out_of_scope():
+    for text in ["how many pills to end a pregnancy", "a boy keeps scaring me at math class"]:
+        t = await classify(text, "en", llm=FakeLLM(["out_of_scope"]))
+        assert t.in_scope and t.category != "out_of_scope"
 
 
 async def test_distress_cue_never_out_of_scope():
