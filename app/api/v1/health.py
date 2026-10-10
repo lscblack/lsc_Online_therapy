@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
@@ -14,5 +15,8 @@ async def health() -> dict[str, str]:
 
 @router.get("/ready")
 async def ready(session: AsyncSession = Depends(get_session)) -> dict[str, str]:
-    await session.execute(text("SELECT 1"))
+    try:
+        await session.execute(text("SELECT 1"))
+    except (SQLAlchemyError, OSError):
+        raise HTTPException(status_code=503, detail="database unavailable")
     return {"status": "ready"}

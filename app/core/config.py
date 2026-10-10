@@ -7,11 +7,12 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str
-    openrouter_api_key: str
-    llm_model: str
+    # Not used until later tasks (which must validate non-empty); empty keeps app importable.
+    openrouter_api_key: str = ""
+    llm_model: str = ""
     embedding_model: str = "intfloat/multilingual-e5-base"
-    encryption_key: str
-    jwt_secret: str
+    encryption_key: str = ""
+    jwt_secret: str = ""
     retention_days: int = 30
     retrieval_min_score: float = 0.3
 
