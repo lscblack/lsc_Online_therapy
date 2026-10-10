@@ -3,6 +3,10 @@ from dataclasses import dataclass
 from typing import Literal, Protocol, runtime_checkable
 
 
+class ProviderError(RuntimeError):
+    """An external provider reported an error (e.g. mid-stream SSE error event)."""
+
+
 @dataclass
 class Transcript:
     text: str

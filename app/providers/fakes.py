@@ -20,14 +20,15 @@ class FakeLLM:
 
 
 class FakeEmbeddings:
-    """Deterministic hash-seeded unit vectors; no torch."""
+    """Deterministic hash-seeded unit vectors from text only (kind ignored, so a query
+    matches an identical passage); no torch."""
 
     async def embed(
         self, texts: list[str], kind: Literal["query", "passage"]
     ) -> list[list[float]]:
         out = []
         for t in texts:
-            seed = int.from_bytes(hashlib.sha256(f"{kind}:{t}".encode()).digest()[:8], "big")
+            seed = int.from_bytes(hashlib.sha256(t.encode()).digest()[:8], "big")
             rng = random.Random(seed)
             v = [rng.uniform(-1, 1) for _ in range(DIM)]
             n = sum(x * x for x in v) ** 0.5

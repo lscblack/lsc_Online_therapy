@@ -6,6 +6,8 @@ class OpenRouterTTS:
         self, api_key: str, model: str = "openai/tts-1",
         base_url: str = "https://openrouter.ai/api/v1", default_voice: str = "alloy",
     ):
+        if not api_key or not model:
+            raise ValueError("OpenRouterTTS requires non-empty api_key and model")
         self._key, self._model, self._base = api_key, model, base_url.rstrip("/")
         self._voice = default_voice
 

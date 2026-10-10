@@ -3,9 +3,13 @@ from collections.abc import AsyncIterator
 
 import httpx
 
+from app.providers.base import ProviderError
+
 
 class OpenRouterLLM:
     def __init__(self, api_key: str, model: str, base_url: str = "https://openrouter.ai/api/v1"):
+        if not api_key or not model:
+            raise ValueError("OpenRouterLLM requires non-empty api_key and model")
         self._key, self._model, self._base = api_key, model, base_url.rstrip("/")
 
     async def stream_chat(self, messages: list[dict], **opts) -> AsyncIterator[str]:
@@ -26,8 +30,10 @@ class OpenRouterLLM:
                         return
                     try:
                         event = json.loads(data)
-                    except json.JSONDecodeError:
-                        continue
+                    except json.JSONDecodeError as exc:
+                        raise ProviderError(f"Malformed SSE data from provider: {data[:200]!r}") from exc
+                    if isinstance(event, dict) and event.get("error"):
+                        raise ProviderError(f"Provider stream error: {event['error']}")
                     for choice in event.get("choices") or []:
                         content = (choice.get("delta") or {}).get("content")
                         if content:

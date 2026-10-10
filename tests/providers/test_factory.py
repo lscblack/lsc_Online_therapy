@@ -61,6 +61,7 @@ async def test_fakes_behave():
     v1 = await e.embed(["hello"], "query")
     v2 = await e.embed(["hello"], "query")
     assert v1 == v2 and len(v1[0]) == 768
-    assert (await e.embed(["hello"], "passage")) != v1
+    assert (await e.embed(["hello"], "passage")) == v1
+    assert (await e.embed(["other"], "query")) != v1
     assert (await FakeSTT(text="hi").transcribe(b"x", None)).text == "hi"
     assert isinstance(await FakeTTS().synthesize("hi", "rw", None), bytes)
