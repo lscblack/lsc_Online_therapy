@@ -90,7 +90,8 @@ async def test_voice_chat_roundtrip(session, user, monkeypatch):
     res = await VoiceService(session, llm=llm).voice_chat(user, b"audio-bytes", filename="a.wav")
     assert res.transcript.text == T_FP
     assert res.chat.answer.startswith("Condoms") and res.chat.citations[0]["id"] == "S1"
-    assert res.audio == b"FAKE-MP3:" + res.chat.answer.encode()  # spoke the guarded answer
+    assert "[S1]" in res.chat.answer
+    assert res.audio == b"FAKE-MP3:" + res.chat.answer.replace(" [S1]", "").encode()  # guarded, markers stripped
     conv = await session.get(Conversation, res.chat.conversation_id)
     assert conv.mode.value == "voice"
 
@@ -110,7 +111,8 @@ async def test_voice_chat_endpoint(client, session, monkeypatch):
     j = r.json()
     assert j["transcript"] == T_FP and j["answer"].startswith("Condoms")
     assert j["citations"][0]["id"] == "S1" and j["conversation_id"] and "crisis" in j["safety_flags"]
-    assert base64.b64decode(j["audio_base64"]) == b"FAKE-MP3:" + j["answer"].encode()
+    assert "[S1]" in j["answer"] and j["tts_available"] is True
+    assert base64.b64decode(j["audio_base64"]) == b"FAKE-MP3:" + j["answer"].replace(" [S1]", "").encode()
     assert j["audio_mime"] == "audio/mpeg"
     r2 = await client.post("/v1/voice/chat", headers=h, data={"conversation_id": str(uuid.uuid4())},
                            files={"audio": ("a.webm", b"zzz", "audio/webm")})
@@ -138,3 +140,52 @@ async def test_voice_chat_crisis_is_guarded(session, user, monkeypatch):
     assert b"MODEL ANSWER" not in res.audio and t("crisis_self_harm", "en").encode() in res.audio
     conv = await session.get(Conversation, res.chat.conversation_id)
     assert conv.mode.value == "voice"
+
+
+async def test_tts_failure_still_returns_crisis_text(client, monkeypatch):
+    import app.services.chat as chat_mod
+    import app.services.voice as voice_mod
+    monkeypatch.setattr(voice_mod, "get_stt", lambda: FakeSTT(text="I want to kill myself", language="en"))
+    monkeypatch.setattr(chat_mod, "get_llm", lambda: FakeLLM(["MODEL ANSWER"]))
+    h = await _headers(client)
+    # Kinyarwanda hits the not-implemented Digital Umuganda TTS stub
+    monkeypatch.setattr(get_settings(), "tts_provider", "digitalumuganda")
+    r = await client.post("/v1/voice/chat", headers=h, data={"language": "en"},
+                          files={"audio": ("a.webm", b"zzz", "audio/webm")})
+    assert r.status_code == 200
+    j = r.json()
+    assert j["tts_available"] is False and j["audio_base64"] == ""
+    assert t("crisis_self_harm", "en") in j["answer"] and "MODEL ANSWER" not in j["answer"]
+    assert j["safety_flags"]["crisis"] is True
+
+
+async def test_oversize_upload_413(client, monkeypatch):
+    import app.api.v1.voice as voice_api
+    monkeypatch.setattr(voice_api, "MAX_AUDIO_BYTES", 10)
+    h = await _headers(client)
+    r = await client.post("/v1/voice/chat", headers=h,
+                          files={"audio": ("a.webm", b"x" * 50, "audio/webm")})
+    assert r.status_code == 413
+
+
+async def test_voice_chat_guarded_noncrisis_reaches_tts(session, user, monkeypatch):
+    import app.services.voice as voice_mod
+    await _doc(session, "FP Guide", [T_FP])
+    monkeypatch.setattr(voice_mod, "get_stt",
+                        lambda: FakeSTT(text="How do I deal with an unusual rash?", language="en"))
+    llm = FakeLLM(["Sure, the answer is definitely 42 and you should do X."])
+    res = await VoiceService(session, llm=llm).voice_chat(user, b"audio", language="en")
+    assert "42" not in res.chat.answer and t("disclaimer", "en") in res.chat.answer
+    assert t("referral_fallback", "en") in res.chat.answer
+    assert b"42" not in res.audio and t("disclaimer", "en").encode() in res.audio
+    assert res.tts_available is True
+
+
+async def test_filename_derived_from_content_type():
+    from starlette.datastructures import Headers
+    from starlette.datastructures import UploadFile as UF
+
+    from app.api.v1.voice import _filename
+    f = UF(file=__import__("io").BytesIO(b"x"), filename=None,
+           headers=Headers({"content-type": "audio/webm;codecs=opus"}))
+    assert _filename(f) == "audio.webm"

@@ -4,6 +4,8 @@ Safety: voice_chat() never generates text itself. The text that is spoken is exa
 ChatResult.answer from ChatService.respond() (triage, crisis bypass, grounding guard, referrals
 already applied), so every Task 8/9 guarantee holds for voice.
 """
+import logging
+import re
 import uuid
 from dataclasses import dataclass
 
@@ -16,6 +18,10 @@ from app.providers.factory import get_stt, get_tts
 from app.services.chat import ChatResult, ChatService
 
 
+logger = logging.getLogger(__name__)
+_CITE = re.compile(r"\s*\[S\d+\]")
+
+
 class EmptyTranscript(ValueError):
     """Speech-to-text produced no usable text."""
 
@@ -26,6 +32,7 @@ class VoiceChatResult:
     chat: ChatResult
     audio: bytes
     audio_mime: str = "audio/mpeg"
+    tts_available: bool = True
 
 
 class VoiceService:
@@ -48,5 +55,11 @@ class VoiceService:
             raise EmptyTranscript("no speech recognised")
         result = await self.chat.respond(user, transcript.text, conversation_id,
                                          language or transcript.language, mode="voice")
-        speech = await self.speak(result.answer, result.language, voice)
+        # Citation markers are stripped for speech only; result.answer keeps them.
+        spoken = _CITE.sub("", result.answer).strip()
+        try:
+            speech = await self.speak(spoken, result.language, voice)
+        except Exception as exc:  # noqa: BLE001 - the guarded text must reach the client regardless
+            logger.error("TTS failed (%s); returning text-only voice reply", type(exc).__name__)
+            return VoiceChatResult(transcript, result, b"", tts_available=False)
         return VoiceChatResult(transcript, result, speech)

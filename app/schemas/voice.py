@@ -31,5 +31,6 @@ class VoiceChatResponse(BaseModel):
     conversation_id: uuid.UUID
     safety_flags: dict[str, Any]
     language: str
-    audio_base64: str
+    audio_base64: str  # empty when tts_available is False
     audio_mime: str
+    tts_available: bool = True

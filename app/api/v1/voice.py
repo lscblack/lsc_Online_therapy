@@ -14,6 +14,18 @@ from app.services.voice import EmptyTranscript, VoiceService
 
 router = APIRouter(prefix="/v1/voice", tags=["voice"])
 MAX_AUDIO_BYTES = 10 * 1024 * 1024
+# STT only uses the filename extension to infer format; if the upload has no filename we derive
+# one from its content-type.
+_EXT = {"audio/webm": "webm", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp3": "mp3",
+        "audio/wav": "wav", "audio/x-wav": "wav", "audio/wave": "wav", "audio/mp4": "m4a",
+        "audio/x-m4a": "m4a", "audio/flac": "flac"}
+
+
+def _filename(file: UploadFile) -> str | None:
+    if file.filename:
+        return file.filename
+    base = (file.content_type or "").split(";")[0].strip().lower()
+    return f"audio.{_EXT[base]}" if base in _EXT else None
 
 
 async def _read_audio(file: UploadFile) -> bytes:
@@ -21,7 +33,7 @@ async def _read_audio(file: UploadFile) -> bytes:
     if not data:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Empty audio upload")
     if len(data) > MAX_AUDIO_BYTES:
-        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Audio too large")
+        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Audio too large")
     return data
 
 
@@ -30,7 +42,7 @@ async def transcribe(audio: UploadFile = File(...), language: str | None = Form(
                      user: User = Depends(current_user),
                      session: AsyncSession = Depends(get_session)) -> TranscribeResponse:
     data = await _read_audio(audio)
-    tr = await VoiceService(session).transcribe(data, language, audio.filename)
+    tr = await VoiceService(session).transcribe(data, language, _filename(audio))
     return TranscribeResponse(text=tr.text, language=tr.language)
 
 
@@ -49,7 +61,7 @@ async def voice_chat(audio: UploadFile = File(...), language: str | None = Form(
     data = await _read_audio(audio)
     try:
         r = await VoiceService(session).voice_chat(user, data, language, voice, conversation_id,
-                                                   audio.filename)
+                                                   _filename(audio))
     except ConversationNotFound as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found") from e
     except EmptyTranscript as e:
@@ -58,4 +70,5 @@ async def voice_chat(audio: UploadFile = File(...), language: str | None = Form(
     return VoiceChatResponse(
         transcript=r.transcript.text, answer=c.answer, citations=c.citations,
         conversation_id=c.conversation_id, safety_flags=c.safety_flags, language=c.language,
-        audio_base64=base64.b64encode(r.audio).decode(), audio_mime=r.audio_mime)
+        audio_base64=base64.b64encode(r.audio).decode(), audio_mime=r.audio_mime,
+        tts_available=r.tts_available)
