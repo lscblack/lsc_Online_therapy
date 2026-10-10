@@ -27,7 +27,9 @@ class EmbeddingProvider(Protocol):
 
 @runtime_checkable
 class STTProvider(Protocol):
-    async def transcribe(self, audio: bytes, language: str | None) -> Transcript: ...
+    async def transcribe(
+        self, audio: bytes, language: str | None, filename: str | None = None
+    ) -> Transcript: ...
 
 
 @runtime_checkable

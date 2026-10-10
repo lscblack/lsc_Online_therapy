@@ -1,0 +1,140 @@
+import uuid
+
+import pytest
+from sqlalchemy import delete, select
+
+from app.core.config import get_settings
+from app.core.db import get_engine, get_sessionmaker
+from app.core.i18n import t
+from app.models import Document, User
+from app.models.conversation import Conversation
+from app.providers.fakes import FakeLLM, FakeSTT
+from app.services.voice import VoiceService
+from tests.rag.test_retrieval import T_FP, _doc
+from tests.test_identity import schema as _schema  # noqa: F401
+
+
+@pytest.fixture(scope="module", autouse=True)
+def schema(_schema):
+    return _schema
+
+
+@pytest.fixture(autouse=True)
+async def _fresh_pool(schema):
+    await get_engine().dispose()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _fakes(monkeypatch):
+    s = get_settings()
+    monkeypatch.setattr(s, "embedding_provider", "fake")
+    monkeypatch.setattr(s, "stt_provider", "fake")
+    monkeypatch.setattr(s, "tts_provider", "fake")
+
+
+@pytest.fixture
+async def session():
+    async with get_sessionmaker()() as s:
+        await s.execute(delete(Document))
+        await s.commit()
+        yield s
+        await s.rollback()
+        await s.execute(delete(Document))
+        await s.commit()
+
+
+@pytest.fixture
+async def user(session):
+    u = User(anon_id=f"voice-{uuid.uuid4().hex}")
+    session.add(u)
+    await session.commit()
+    return u
+
+
+async def _headers(client):
+    anon = (await client.post("/v1/identity/anon")).json()
+    return {"Authorization": f"Bearer {anon['access_token']}"}
+
+
+async def test_transcribe_returns_text(client):
+    h = await _headers(client)
+    r = await client.post("/v1/voice/transcribe", headers=h, data={"language": "en"},
+                          files={"audio": ("clip.webm", b"\x00\x01audio", "audio/webm")})
+    assert r.status_code == 200
+    assert r.json() == {"text": "fake transcript", "language": "en"}
+    assert (await client.post("/v1/voice/transcribe",
+                              files={"audio": ("c.webm", b"x", "audio/webm")})).status_code == 401
+    r = await client.post("/v1/voice/transcribe", headers=h,
+                          files={"audio": ("c.webm", b"", "audio/webm")})
+    assert r.status_code == 400
+
+
+async def test_speak_returns_audio(client):
+    h = await _headers(client)
+    r = await client.post("/v1/voice/speak", headers=h,
+                          json={"text": "Muraho", "language": "rw"})
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("audio/mpeg")
+    assert r.content == b"FAKE-MP3:Muraho"
+    assert (await client.post("/v1/voice/speak", json={"text": "x", "language": "en"})).status_code == 401
+    assert (await client.post("/v1/voice/speak", headers=h,
+                              json={"text": "  ", "language": "en"})).status_code == 422
+
+
+async def test_voice_chat_roundtrip(session, user, monkeypatch):
+    await _doc(session, "FP Guide", [T_FP])
+    import app.services.voice as voice_mod
+    monkeypatch.setattr(voice_mod, "get_stt", lambda: FakeSTT(text=T_FP, language="en"))
+    llm = FakeLLM(["Condoms and pills are common methods [S1]."])
+    res = await VoiceService(session, llm=llm).voice_chat(user, b"audio-bytes", filename="a.wav")
+    assert res.transcript.text == T_FP
+    assert res.chat.answer.startswith("Condoms") and res.chat.citations[0]["id"] == "S1"
+    assert res.audio == b"FAKE-MP3:" + res.chat.answer.encode()  # spoke the guarded answer
+    conv = await session.get(Conversation, res.chat.conversation_id)
+    assert conv.mode.value == "voice"
+
+
+async def test_voice_chat_endpoint(client, session, monkeypatch):
+    import base64
+
+    import app.services.chat as chat_mod
+    import app.services.voice as voice_mod
+    await _doc(session, "FP Guide", [T_FP])
+    monkeypatch.setattr(voice_mod, "get_stt", lambda: FakeSTT(text=T_FP, language="en"))
+    monkeypatch.setattr(chat_mod, "get_llm", lambda: FakeLLM(["Condoms work well [S1]."]))
+    h = await _headers(client)
+    r = await client.post("/v1/voice/chat", headers=h, data={"language": "en"},
+                          files={"audio": ("a.webm", b"zzz", "audio/webm")})
+    assert r.status_code == 200
+    j = r.json()
+    assert j["transcript"] == T_FP and j["answer"].startswith("Condoms")
+    assert j["citations"][0]["id"] == "S1" and j["conversation_id"] and "crisis" in j["safety_flags"]
+    assert base64.b64decode(j["audio_base64"]) == b"FAKE-MP3:" + j["answer"].encode()
+    assert j["audio_mime"] == "audio/mpeg"
+    r2 = await client.post("/v1/voice/chat", headers=h, data={"conversation_id": str(uuid.uuid4())},
+                           files={"audio": ("a.webm", b"zzz", "audio/webm")})
+    assert r2.status_code == 404
+    monkeypatch.setattr(voice_mod, "get_stt", lambda: FakeSTT(text="   ", language="en"))
+    r3 = await client.post("/v1/voice/chat", headers=h, files={"audio": ("a.webm", b"zzz", "audio/webm")})
+    assert r3.status_code == 422
+
+
+async def test_voice_chat_crisis_is_guarded(session, user, monkeypatch):
+    import app.services.chat as chat_mod
+    import app.services.voice as voice_mod
+
+    async def boom(*a, **k):
+        raise AssertionError("retrieval must not run for crisis")
+
+    monkeypatch.setattr(chat_mod, "retrieve", boom)
+    monkeypatch.setattr(voice_mod, "get_stt", lambda: FakeSTT(text="I want to kill myself", language="en"))
+    llm = FakeLLM(["MODEL ANSWER MUST NOT APPEAR"])
+    res = await VoiceService(session, llm=llm).voice_chat(user, b"audio", language="en")
+    assert llm.calls == []
+    assert "MODEL ANSWER" not in res.chat.answer
+    assert t("crisis_self_harm", "en") in res.chat.answer
+    assert res.chat.safety_flags["crisis"] is True
+    assert b"MODEL ANSWER" not in res.audio and t("crisis_self_harm", "en").encode() in res.audio
+    conv = await session.get(Conversation, res.chat.conversation_id)
+    assert conv.mode.value == "voice"

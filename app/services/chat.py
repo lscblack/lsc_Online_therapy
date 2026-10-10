@@ -15,7 +15,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.i18n import normalize_language, t
-from app.models import User
+from app.models import ConversationMode, User
 from app.providers.factory import get_llm
 from app.rag.prompt import assemble
 from app.rag.retrieval import RetrievalResult, retrieve
@@ -136,7 +136,7 @@ class ChatService:
                          "in_knowledge": retrieval.in_knowledge, "guard_reason": g.reason})
 
     async def respond(self, user: User, message: str, conversation_id: uuid.UUID | None = None,
-                      language: str | None = None) -> ChatResult:
+                      language: str | None = None, mode: ConversationMode = "text") -> ChatResult:
         if not message or not message.strip():
             raise ValueError("message must not be empty")
         message = message.strip()
@@ -158,7 +158,7 @@ class ChatService:
         cid = conv.id if conv else None
         try:
             if conv is None:
-                conv = await self.repo.create_conversation(user, "text", lang)
+                conv = await self.repo.create_conversation(user, str(mode), lang)
                 cid = conv.id
             await self.repo.add_message(conv.id, "user", message, [], {})
             await self.repo.add_message(conv.id, "assistant", out.answer, out.citations, flags)

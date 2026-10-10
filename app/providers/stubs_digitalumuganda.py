@@ -4,7 +4,8 @@ _MSG = "planned: self-hosted Kinyarwanda model"
 
 
 class DigitalUmugandaSTT:
-    async def transcribe(self, audio: bytes, language: str | None) -> Transcript:
+    async def transcribe(self, audio: bytes, language: str | None,
+                         filename: str | None = None) -> Transcript:
         raise NotImplementedError(_MSG)
 
 

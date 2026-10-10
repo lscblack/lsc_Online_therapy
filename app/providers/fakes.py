@@ -40,7 +40,8 @@ class FakeSTT:
     def __init__(self, text: str = "fake transcript", language: str | None = "en"):
         self.text, self.language = text, language
 
-    async def transcribe(self, audio: bytes, language: str | None) -> Transcript:
+    async def transcribe(self, audio: bytes, language: str | None,
+                         filename: str | None = None) -> Transcript:
         return Transcript(text=self.text, language=language or self.language)
 
 
