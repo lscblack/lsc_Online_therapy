@@ -1,4 +1,5 @@
 """JWT (PyJWT, HS256) and argon2 secret hashing. Never log tokens or secrets."""
+import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -38,10 +39,34 @@ def verify_secret(raw: str, hashed: str) -> bool:
         return False
 
 
+async def ahash_secret(raw: str) -> str:
+    """Non-blocking argon2 hash (runs in a worker thread)."""
+    return await asyncio.to_thread(hash_secret, raw)
+
+
+async def averify_secret(raw: str, hashed: str) -> bool:
+    """Non-blocking argon2 verify (runs in a worker thread)."""
+    return await asyncio.to_thread(verify_secret, raw, hashed)
+
+
+JWT_ALLOWED_ALGORITHMS = frozenset({"HS256"})
+JWT_SECRET_MIN_LEN = 32
+
+
+def _algorithm() -> str:
+    alg = get_settings().jwt_algorithm
+    if alg not in JWT_ALLOWED_ALGORITHMS:
+        raise RuntimeError(f"Unsupported JWT algorithm {alg!r}; only HS256 is allowed")
+    return alg
+
+
 def _secret() -> str:
     secret = get_settings().jwt_secret
     if not secret:
         raise RuntimeError("JWT_SECRET is not configured; refusing to sign/verify tokens")
+    if len(secret) < JWT_SECRET_MIN_LEN:
+        raise RuntimeError(
+            f"JWT_SECRET must be at least {JWT_SECRET_MIN_LEN} characters")
     return secret
 
 
@@ -55,7 +80,7 @@ def _encode(sub: str, token_type: str, ttl: timedelta, extra: dict[str, Any]) ->
         "exp": now + ttl,
         "jti": uuid.uuid4().hex,
     }
-    return jwt.encode(claims, _secret(), algorithm=get_settings().jwt_algorithm)
+    return jwt.encode(claims, _secret(), algorithm=_algorithm())
 
 
 def create_access_token(sub: str, role: str, **claims: Any) -> str:
@@ -76,7 +101,7 @@ def decode_token(token: str, expected_type: str | None = None) -> dict[str, Any]
     secret = _secret()
     try:
         claims = jwt.decode(
-            token, secret, algorithms=[get_settings().jwt_algorithm],
+            token, secret, algorithms=[_algorithm()],
             options={"require": ["exp", "sub", "type"]},
         )
     except jwt.ExpiredSignatureError as e:

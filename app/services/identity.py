@@ -11,7 +11,13 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import create_access_token, create_refresh_token, hash_secret, verify_secret
+from app.core.security import (
+    averify_secret,
+    ahash_secret,
+    create_access_token,
+    create_refresh_token,
+    hash_secret,
+)
 from app.models import User
 from app.models.user import UserRole
 from app.repositories.users import UserRepository
@@ -21,6 +27,10 @@ _DUMMY_HASH = hash_secret("ubuzima-dummy-secret")
 
 
 class InvalidCredentials(Exception):
+    pass
+
+
+class AlreadyUpgraded(Exception):
     pass
 
 
@@ -37,22 +47,28 @@ def issue_tokens(user: User) -> Tokens:
 
 class IdentityService:
     def __init__(self, session: AsyncSession) -> None:
+        self.session = session
         self.users = UserRepository(session)
 
     async def bootstrap_anon(self) -> tuple[User, Tokens]:
         user = await self.users.create(anon_id=secrets.token_urlsafe(24), role=UserRole.user)
+        await self.session.commit()
         return user, issue_tokens(user)
 
     async def upgrade(self, user: User, passphrase: str) -> User:
         if user.role != UserRole.user:
             raise InvalidCredentials("only end-user accounts can set a recovery passphrase")
-        return await self.users.update(
-            user, recovery_hash=hash_secret(passphrase), is_upgraded=True)
+        if user.is_upgraded:
+            raise AlreadyUpgraded("recovery passphrase already set")
+        user = await self.users.update(
+            user, recovery_hash=await ahash_secret(passphrase), is_upgraded=True)
+        await self.session.commit()
+        return user
 
     async def recover(self, anon_id: str, passphrase: str) -> tuple[User, Tokens]:
         user = await self.users.get_by_anon_id(anon_id)
         hashed = user.recovery_hash if user and user.recovery_hash else _DUMMY_HASH
-        ok = verify_secret(passphrase, hashed)
+        ok = await averify_secret(passphrase, hashed)
         if not (ok and user and user.is_upgraded and not user.disabled
                 and user.role == UserRole.user):
             raise InvalidCredentials("invalid credentials")
@@ -66,7 +82,7 @@ class IdentityService:
     async def login_admin(self, email: str, password: str) -> Tokens:
         user = await self.users.get_by_email(email)
         hashed = user.password_hash if user and user.password_hash else _DUMMY_HASH
-        ok = verify_secret(password, hashed)
+        ok = await averify_secret(password, hashed)
         if not (ok and user and user.role in ADMIN_ROLES and not user.disabled):
             raise InvalidCredentials("invalid credentials")
         return issue_tokens(user)

@@ -134,6 +134,17 @@ async def test_upgrade_sets_recovery_and_recover_works(client, session):
     assert unknown.status_code == 401
     assert bad.json() == unknown.json()  # no account enumeration
 
+    # second upgrade must not overwrite the existing passphrase
+    again = await client.post("/v1/identity/upgrade", headers=h,
+                              json={"passphrase": "attacker new passphrase"})
+    assert again.status_code == 409
+    still = await client.post("/v1/identity/recover", json={
+        "anon_id": boot["anon_id"], "passphrase": "correct horse battery"})
+    assert still.status_code == 200
+    assert (await client.post("/v1/identity/recover", json={
+        "anon_id": boot["anon_id"],
+        "passphrase": "attacker new passphrase"})).status_code == 401
+
     # non-upgraded anon account cannot be recovered
     other = (await client.post("/v1/identity/anon")).json()
     r = await client.post("/v1/identity/recover", json={
@@ -233,6 +244,44 @@ def test_empty_jwt_secret_fails(monkeypatch):
     monkeypatch.setenv("JWT_SECRET", "")
     config.get_settings.cache_clear()
     try:
+        with pytest.raises(RuntimeError):
+            create_access_token("x", "user")
+    finally:
+        monkeypatch.undo()
+        config.get_settings.cache_clear()
+
+
+async def test_email_login_is_case_insensitive(session):
+    repo = UserRepository(session)
+    u = await repo.create(anon_id=f"adm-{uuid.uuid4().hex}", role=UserRole.admin,
+                          email=f"Mixed.Case-{uuid.uuid4().hex[:6]}@Example.ORG",
+                          password_hash=hash_secret("pw-long-enough"))
+    await session.commit()
+    assert u.email == u.email.lower()
+    tokens = await IdentityService(session).login_admin(u.email.upper(), "pw-long-enough")
+    assert tokens.access_token
+
+
+async def test_non_uuid_and_non_string_sub_is_401(rc):
+    s = get_settings()
+    now = datetime.now(UTC)
+    for bad in ("not-a-uuid", 12345, ["x"], None):
+        tok = jwt.encode({"sub": bad, "type": "access", "exp": now + timedelta(minutes=5)},
+                         s.jwt_secret, algorithm="HS256")
+        r = await rc.get("/_me", headers=_bearer(tok))
+        assert r.status_code == 401, bad
+
+
+def test_short_secret_and_bad_algorithm_rejected(monkeypatch):
+    from app.core import config
+    try:
+        monkeypatch.setenv("JWT_SECRET", "short")
+        config.get_settings.cache_clear()
+        with pytest.raises(RuntimeError):
+            create_access_token("x", "user")
+        monkeypatch.setenv("JWT_SECRET", "x" * 40)
+        monkeypatch.setenv("JWT_ALGORITHM", "HS512")
+        config.get_settings.cache_clear()
         with pytest.raises(RuntimeError):
             create_access_token("x", "user")
     finally:

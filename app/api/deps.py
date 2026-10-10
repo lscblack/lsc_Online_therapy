@@ -21,8 +21,11 @@ def _unauthorized(detail: str = "Not authenticated") -> HTTPException:
 async def user_from_token(token: str, session: AsyncSession, expected_type: str) -> User:
     try:
         claims = decode_token(token, expected_type=expected_type)
-        user_id = uuid.UUID(claims["sub"])
-    except (TokenError, ValueError, KeyError) as e:
+        sub = claims["sub"]
+        if not isinstance(sub, str):
+            raise ValueError("sub must be a string")
+        user_id = uuid.UUID(sub)
+    except (TokenError, ValueError, TypeError, AttributeError, KeyError) as e:
         raise _unauthorized("Invalid or expired token") from e
     user = await UserRepository(session).get_by_id(user_id)
     if user is None or user.disabled:

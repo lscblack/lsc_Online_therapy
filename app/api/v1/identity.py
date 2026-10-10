@@ -13,7 +13,7 @@ from app.schemas.identity import (
     UpgradeRequest,
     UpgradeResponse,
 )
-from app.services.identity import IdentityService, InvalidCredentials
+from app.services.identity import AlreadyUpgraded, IdentityService, InvalidCredentials
 
 router = APIRouter(prefix="/v1/identity", tags=["identity"])
 
@@ -34,6 +34,8 @@ async def upgrade(body: UpgradeRequest, user: User = Depends(current_user),
                   session: AsyncSession = Depends(get_session)) -> UpgradeResponse:
     try:
         user = await IdentityService(session).upgrade(user, body.passphrase)
+    except AlreadyUpgraded as e:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Recovery passphrase already set") from e
     except InvalidCredentials as e:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not allowed") from e
     return UpgradeResponse(is_upgraded=user.is_upgraded)

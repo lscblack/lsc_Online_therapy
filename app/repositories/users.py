@@ -18,20 +18,28 @@ class UserRepository:
         return res.scalar_one_or_none()
 
     async def get_by_email(self, email: str) -> User | None:
-        res = await self.session.execute(select(User).where(User.email == email))
+        res = await self.session.execute(
+            select(User).where(User.email == email.strip().lower()))
         return res.scalar_one_or_none()
 
+    @staticmethod
+    def _norm(fields: dict) -> dict:
+        if fields.get("email"):
+            fields["email"] = fields["email"].strip().lower()
+        return fields
+
+    # Repositories flush only; the calling service owns the commit.
     async def create(self, **fields) -> User:
-        user = User(**fields)
+        user = User(**self._norm(fields))
         self.session.add(user)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(user)
         return user
 
     async def update(self, user: User, **fields) -> User:
-        for k, v in fields.items():
+        for k, v in self._norm(fields).items():
             setattr(user, k, v)
         self.session.add(user)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(user)
         return user
