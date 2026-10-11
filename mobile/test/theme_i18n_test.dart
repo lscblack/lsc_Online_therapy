@@ -21,8 +21,10 @@ Future<ProviderContainer> makeContainer([Map<String, Object> initial = const {}]
 }
 
 void main() {
-  test('config default apiBase', () {
-    expect(apiBase, 'http://127.0.0.1:8099');
+  test('config default apiBase points at the host on port 8099', () {
+    // Platform-aware: Android (incl. the test host) -> 10.0.2.2; others -> 127.0.0.1.
+    // Either way it is an http host URL on the backend port; --dart-define overrides it.
+    expect(apiBase, anyOf('http://10.0.2.2:8099', 'http://127.0.0.1:8099'));
   });
 
   test('t() differs for en vs rw', () {

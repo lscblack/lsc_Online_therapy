@@ -11,16 +11,31 @@ cd mobile
 flutter pub get
 ```
 
-## Run (web)
+## Run
 
-Start the backend (it listens on port 8099 in the dev setup), then:
+Start the backend bound to all interfaces so devices on your network can reach it:
 
 ```sh
-flutter run -d chrome --dart-define=API_BASE=http://127.0.0.1:8099
+# in backend/
+uvicorn app.main:app --host 0.0.0.0 --port 8099
 ```
 
-`API_BASE` is the backend base URL; it is read at compile time through
-`--dart-define`.
+Then pick the client address for your target — the app has sensible defaults, and
+`--dart-define=API_BASE=...` always overrides:
+
+```sh
+# Web / desktop / iOS simulator (default: http://127.0.0.1:8099)
+flutter run -d chrome
+
+# Android emulator (default: http://10.0.2.2:8099 — the host loopback)
+flutter run -d emulator-5554
+
+# Physical phone on the same Wi-Fi: use the host machine's LAN IP
+flutter run --dart-define=API_BASE=http://192.168.1.74:8099   # replace with your IP (hostname -I)
+```
+
+`API_BASE` is read at compile time through `--dart-define`. The platform-aware
+default lives in `lib/core/config.dart`.
 
 ## Build
 
