@@ -52,7 +52,7 @@ void main() {
   });
 
   testWidgets('shell shows app name and nav destinations', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'onboarded': '1'});
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(ProviderScope(
       overrides: [prefsProvider.overrideWithValue(prefs)],

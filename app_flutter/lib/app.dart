@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme.dart';
+import 'features/onboarding/onboarding_page.dart';
 import 'features/shell/shell.dart';
+import 'state/profile.dart';
 
 class UbuzimaApp extends ConsumerWidget {
   const UbuzimaApp({super.key});
@@ -16,7 +18,7 @@ class UbuzimaApp extends ConsumerWidget {
       themeMode: ref.watch(themeModeProvider),
       // Framework widgets (Material) have no 'rw' locale; app strings come
       // from languageProvider, so Material stays on its default (en).
-      home: const AppShell(),
+      home: ref.watch(onboardedProvider) ? const AppShell() : const OnboardingPage(),
     );
   }
 }
