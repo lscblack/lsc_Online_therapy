@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/auth.dart';
+import '../../state/chat.dart';
+import '../../state/voice.dart';
 import '../../state/profile.dart';
 
 /// App-level settings operations. Bound to the container (not a widget) so a
@@ -16,6 +18,10 @@ class SettingsActions {
     await _ref.read(profileApiProvider).wipe();
     final auth = _ref.read(authProvider.notifier);
     await auth.clearLocalIdentity();
+    // Drop the previous identity's thread and its (now deleted) conversation id;
+    // chatProvider is intentionally not autoDispose (kept across tab switches).
+    _ref.invalidate(chatProvider);
+    _ref.invalidate(voiceControllerProvider);
     await _ref.read(onboardedProvider.notifier).reset();
     try {
       await auth.ensureAnon();

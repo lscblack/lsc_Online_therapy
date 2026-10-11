@@ -32,8 +32,12 @@ class AuthController extends Notifier<AuthState> {
 
   @override
   AuthState build() {
-    ref.read(apiClientProvider).onAuthExpired =
-        () => state = AuthState(ready: false, anonId: state.anonId);
+    ref.read(apiClientProvider).onAuthExpired = () {
+      state = AuthState(ready: false, anonId: state.anonId);
+      // Mint a fresh anonymous identity so chat/voice recover without a restart.
+      // Single-flight; failures (offline) are retried by the next caller.
+      ensureAnon().catchError((_) {});
+    };
     return const AuthState();
   }
 

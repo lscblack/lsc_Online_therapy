@@ -10,7 +10,11 @@ import 'package:ubuzima/core/i18n/i18n.dart';
 import 'package:ubuzima/data/api_client.dart';
 import 'package:ubuzima/data/models/token_pair.dart';
 import 'package:ubuzima/data/token_store.dart';
+import 'package:ubuzima/data/endpoints/chat.dart';
+import 'package:ubuzima/data/models/chat.dart';
 import 'package:ubuzima/state/auth.dart';
+import 'package:ubuzima/state/chat.dart';
+import 'package:ubuzima/features/settings/settings_actions.dart';
 import 'package:ubuzima/state/profile.dart';
 
 import 'support/fakes.dart';
@@ -29,6 +33,30 @@ class LoggingStore extends MemoryTokenStore {
     log.add('clearAnonId');
     return super.clearAnonId();
   }
+}
+
+class _FakeChat implements ChatApi {
+  final reqs = <ChatRequest>[];
+  @override
+  Stream<ChatStreamEvent> streamChat(
+    ChatRequest req, {
+    CancelToken? cancelToken,
+  }) async* {
+    reqs.add(req);
+    const r = ChatResponse(
+      answer: 'ok',
+      citations: [],
+      conversationId: 'old-conv',
+      safetyFlags: SafetyFlags(),
+      language: 'en',
+    );
+    yield ChatToken('ok');
+    yield const ChatDone(r);
+  }
+
+  @override
+  Future<ChatResponse> send(ChatRequest req) async =>
+      throw UnimplementedError();
 }
 
 class Env {
@@ -226,6 +254,37 @@ void main() {
     expect(e.container.read(onboardedProvider), isTrue);
     expect(await e.store.readAnonId(), 'old-anon');
     expect(find.byKey(const Key('set-wipe-error')), findsOneWidget);
+  });
+
+  test('wipe resets chat state and conversation id', () async {
+    final e = Env();
+    await e.init();
+    final fake = _FakeChat();
+    final c = ProviderContainer(
+      overrides: [
+        prefsProvider.overrideWithValue(e.prefs),
+        tokenStoreProvider.overrideWithValue(e.store),
+        apiClientProvider.overrideWithValue(
+          ApiClient(
+            tokens: e.store,
+            dio: Dio()..httpClientAdapter = e.adapter,
+            baseUrl: 'http://x',
+          ),
+        ),
+        chatApiProvider.overrideWithValue(fake),
+      ],
+    );
+    addTearDown(c.dispose);
+    await c.read(chatProvider.notifier).send('hello');
+    expect(c.read(chatProvider).messages, isNotEmpty);
+    expect(c.read(chatProvider).conversationId, 'old-conv');
+
+    await c.read(settingsActionsProvider).wipeMyData();
+
+    expect(c.read(chatProvider).messages, isEmpty);
+    expect(c.read(chatProvider).conversationId, isNull);
+    await c.read(chatProvider.notifier).send('hi again');
+    expect(fake.reqs.last.conversationId, isNull);
   });
 
   testWidgets('nav reaches Chat, Voice and Settings', (t) async {
