@@ -64,6 +64,8 @@ class Settings(BaseSettings):
     realtime_barge_in_grace_ms: int = 300
     realtime_barge_in_min_speech_ms: int = 60
     realtime_crisis_min_play_ms: int = 4000
+    # Realtime voice: max concurrent live sessions per identity (offer beyond it -> 429).
+    realtime_max_sessions_per_user: int = 2
 
 
 @lru_cache

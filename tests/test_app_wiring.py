@@ -36,14 +36,13 @@ def test_all_routes_registered():
         assert any(x == p or x.startswith(p) for x in paths), p
 
 
-def test_live_ws_returns_not_available():
+def test_live_ws_requires_auth():
+    from starlette.websockets import WebSocketDisconnect
     with TestClient(app) as c:
-        with c.websocket_connect("/v1/live") as ws:
-            msg = ws.receive_json()
-            assert msg["error"] == "not_available"
-            assert "future sub-project" in msg["detail"]
-            with pytest.raises(Exception):
-                ws.receive_json()
+        with pytest.raises(WebSocketDisconnect) as ei:
+            with c.websocket_connect("/v1/live?session_id=x"):
+                pass
+        assert ei.value.code == 4401
 
 
 async def test_error_envelope_shape(client):

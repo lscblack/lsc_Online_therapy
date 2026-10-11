@@ -277,6 +277,14 @@ class LiveSession:
         if self._speech_ms >= self._min_speech_ms and self._barge_allowed():
             await self._interrupt()
 
+    async def barge_in(self) -> None:
+        """Client-requested interrupt (control channel). Honors the crisis-line protection."""
+        if self._closed.is_set() or self.state not in (State.SPEAKING, State.THINKING):
+            return
+        if self._turn_crisis and not self._barge_allowed():
+            return
+        await self._interrupt()
+
     async def _interrupt(self, to_listening: bool = True) -> None:
         """Cancel TTS + in-flight generation. One barge-in = one event."""
         if self._interrupting:
