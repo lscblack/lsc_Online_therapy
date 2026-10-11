@@ -3,49 +3,49 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'prefs.dart';
 
-// Warm "buddy" palette. Solid colours only: no gradients anywhere.
+// Blue/green palette. Solid colours only: no gradients anywhere.
 const _lightScheme = ColorScheme(
   brightness: Brightness.light,
-  primary: Color(0xFFB3412F), // warm coral-brick, 5.9:1 on white-ish
+  primary: Color(0xFF1565C0), // blue
   onPrimary: Color(0xFFFFFFFF),
-  primaryContainer: Color(0xFFFFDAD2),
-  onPrimaryContainer: Color(0xFF410D05),
-  secondary: Color(0xFF0B6B69), // teal
+  primaryContainer: Color(0xFFD4E3FF),
+  onPrimaryContainer: Color(0xFF001B3D),
+  secondary: Color(0xFF0E8A5F), // green
   onSecondary: Color(0xFFFFFFFF),
-  secondaryContainer: Color(0xFFBDEEEA),
-  onSecondaryContainer: Color(0xFF00201F),
-  tertiary: Color(0xFF7A5A00),
+  secondaryContainer: Color(0xFFBEEBD2),
+  onSecondaryContainer: Color(0xFF00210F),
+  tertiary: Color(0xFF00658E),
   onTertiary: Color(0xFFFFFFFF),
-  error: Color(0xFFB3261E),
+  error: Color(0xFFC0392B),
   onError: Color(0xFFFFFFFF),
-  surface: Color(0xFFFFF8F4),
-  onSurface: Color(0xFF2A1F1B),
-  surfaceContainerHighest: Color(0xFFF1E4DE),
-  onSurfaceVariant: Color(0xFF55443E),
-  outline: Color(0xFF85736C),
-  outlineVariant: Color(0xFFD8C2BA),
+  surface: Color(0xFFF7FAFD),
+  onSurface: Color(0xFF0F1F2E),
+  surfaceContainerHighest: Color(0xFFE2ECF5),
+  onSurfaceVariant: Color(0xFF42525F),
+  outline: Color(0xFF72808C),
+  outlineVariant: Color(0xFFC2CDD8),
 );
 
 const _darkScheme = ColorScheme(
   brightness: Brightness.dark,
-  primary: Color(0xFFFFB4A5),
-  onPrimary: Color(0xFF5F1507),
-  primaryContainer: Color(0xFF8A2D1D),
-  onPrimaryContainer: Color(0xFFFFDAD2),
-  secondary: Color(0xFF7FD6D1),
-  onSecondary: Color(0xFF00201F),
-  secondaryContainer: Color(0xFF00504E),
-  onSecondaryContainer: Color(0xFFBDEEEA),
-  tertiary: Color(0xFFEFC04C),
-  onTertiary: Color(0xFF3F2E00),
+  primary: Color(0xFF9ECAFF), // light blue on dark
+  onPrimary: Color(0xFF00315B),
+  primaryContainer: Color(0xFF1A4A80),
+  onPrimaryContainer: Color(0xFFD4E3FF),
+  secondary: Color(0xFF8FD5B4), // green on dark
+  onSecondary: Color(0xFF00391E),
+  secondaryContainer: Color(0xFF0A6B45),
+  onSecondaryContainer: Color(0xFFBEEBD2),
+  tertiary: Color(0xFF86CFFF),
+  onTertiary: Color(0xFF00344E),
   error: Color(0xFFFFB4AB),
   onError: Color(0xFF690005),
-  surface: Color(0xFF1F1613),
-  onSurface: Color(0xFFF2DFD9),
-  surfaceContainerHighest: Color(0xFF3A2D28),
-  onSurfaceVariant: Color(0xFFD8C2BA),
-  outline: Color(0xFFA08C85),
-  outlineVariant: Color(0xFF55443E),
+  surface: Color(0xFF0B1620),
+  onSurface: Color(0xFFE9F2F9),
+  surfaceContainerHighest: Color(0xFF1F3242),
+  onSurfaceVariant: Color(0xFFC2CDD8),
+  outline: Color(0xFF8A99A6),
+  outlineVariant: Color(0xFF42525F),
 );
 
 ThemeData buildTheme(Brightness b) {
