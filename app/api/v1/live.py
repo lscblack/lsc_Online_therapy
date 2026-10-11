@@ -70,6 +70,11 @@ async def offer(body: OfferIn, user: User = Depends(current_user),
     except signaling.CapExceeded:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
                             "Too many concurrent live sessions") from None
+    except ImportError as e:  # aiortc/av (realtime extra) not installed
+        logger.warning("realtime unavailable: %s", e)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
+                            "Realtime voice unavailable (install the realtime extra: "
+                            "pip install '.[realtime]')") from e
     except (ValueError, KeyError, TypeError) as e:  # malformed SDP; anything else is a real 500
         logger.warning("rejected offer: %s", type(e).__name__)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid offer") from e

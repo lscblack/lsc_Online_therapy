@@ -78,3 +78,33 @@ credential = base64 HMAC-SHA1 over it, valid `TURN_TTL` seconds).
 - `docker compose --profile realtime up coturn` runs a **dev-only** coturn sharing `TURN_SECRET` (must be set in `.env`; opt-in profile so db/api are unaffected). It is not hardened.
 - Production needs a publicly reachable TURN server: set `--external-ip`, open 3478 (udp+tcp) and the relay port range in the firewall, and add TLS (`turns:` on 5349).
 - Without `TURN_SECRET` only STUN is offered; clients behind symmetric NATs or strict firewalls will often fail to connect.
+
+## Live voice (realtime)
+**Architecture.** WebRTC, server-terminated (aiortc): the client sends mic audio over a peer
+connection; the server runs VAD, streaming STT (Deepgram for English; VAD-segmented utterances
+for Kinyarwanda), then the normal `ChatService` pipeline, and streams TTS back on an outbound
+audio track. Safety is **guard-before-audio**: crisis/safety checks run on the transcript before
+any synthesized audio is released. Barge-in cancels agent speech (crisis answers play a minimum
+duration first). Layering is additive; the text/voice REST API is unchanged.
+
+**Client flow.**
+1. `POST /v1/live/offer` (Bearer JWT) `{sdp, type:"offer", language, voice?}` -> `{session_id, sdp (answer), ice_servers, ws_ticket}`. 401 unauthenticated, 429 over the per-user cap, 503 if the realtime extra is not installed.
+2. Trickle ICE: `POST /v1/live/ice` `{session_id, candidate}` (or via the WS).
+3. Open `WS /v1/live?session_id=...&ticket=<ws_ticket>` (ticket is single-use, ~60s). Server events: `state`, `transcript_partial/final`, `answer`, `citations`, `safety_flags`, `barge_in`, `error`. Client messages: `{"type":"barge_in"}`, `{"type":"end"}`, `{"type":"ice", candidate}`. Close codes: 4401 unauthorized, 4404 unknown session, 4409 already attached.
+
+**Settings (env).** `REALTIME_MAX_SESSIONS_PER_USER` (2), `REALTIME_MAX_SESSION_SECONDS` (900),
+`REALTIME_IDLE_SECONDS` (120), `REALTIME_WS_ATTACH_GRACE_SECONDS` (30, time allowed between
+`/offer` and the WS attaching), `REALTIME_REAPER_INTERVAL_SECONDS` (5), plus `STUN_URL`,
+`TURN_URL`, `TURN_SECRET`, `TURN_TTL` (see above) and `STREAMING_STT_PROVIDER`
+(`auto|deepgram|vad|fake`). A background reaper (started in the app lifespan) closes sessions
+that are idle, over max duration, or never attached a WS; on shutdown all sessions are closed.
+
+**Install the realtime extra.** The heavy deps (aiortc, av, silero-vad/torch, webrtcvad) are
+optional: `pip install '.[realtime]'`. Without them the app boots normally and non-realtime
+routes work; `POST /v1/live/offer` returns 503 "Realtime voice unavailable".
+
+**Not covered by the default tests.** Unit tests use fakes. Real aiortc handshakes, coturn, the
+multilingual-e5 model, and Deepgram are integration/production concerns (`pytest -m integration`).
+Go-live gates still deferred: a real aiortc offer/answer smoke on the target host, a public TURN
+with TLS, and load testing of concurrent sessions (the registry and reaper are per-process, so
+run a single worker or add sticky routing).

@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     realtime_crisis_min_play_ms: int = 4000
     # Realtime voice: max concurrent live sessions per identity (offer beyond it -> 429).
     realtime_max_sessions_per_user: int = 2
+    # Realtime voice: reaper deadlines (seconds). Idle = no WS/ICE/feed activity; max = hard
+    # session length; attach grace = time allowed between /offer and the control WS attaching.
+    realtime_max_session_seconds: int = 900
+    realtime_idle_seconds: int = 120
+    realtime_ws_attach_grace_seconds: int = 30
+    realtime_reaper_interval_seconds: float = 5.0
 
 
 @lru_cache

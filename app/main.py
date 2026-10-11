@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -26,7 +27,19 @@ async def seed_referrals_on_startup() -> int:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await seed_referrals_on_startup()
-    yield
+    from app.core.config import get_settings
+    from app.realtime import reaper, signaling
+    task = asyncio.ensure_future(reaper.run_reaper(
+        signaling.registry, interval=get_settings().realtime_reaper_interval_seconds))
+    try:
+        yield
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        try:
+            await signaling.registry.close_all()
+        except Exception:  # noqa: BLE001
+            log.exception("closing live sessions on shutdown failed")
 
 
 app = FastAPI(

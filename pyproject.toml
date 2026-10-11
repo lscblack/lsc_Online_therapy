@@ -22,6 +22,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Heavy realtime-voice deps; the app boots and serves non-realtime routes without them.
+realtime = ["aiortc", "av", "numpy", "silero-vad", "webrtcvad-wheels"]
 dev = ["reportlab", "pytest", "pytest-asyncio", "pytest-cov", "respx"]
 
 [tool.pytest.ini_options]
