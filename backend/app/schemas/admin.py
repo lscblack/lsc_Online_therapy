@@ -7,7 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.user import UserRole
 from app.schemas.document import DocumentOut, ReviewIn
 
-__all__ = ["AdminLoginRequest", "AuditOut", "DocumentOut", "ReviewIn", "UserOut"]
+__all__ = ["AdminLoginRequest", "AuditOut", "DocumentOut", "ModelInfo", "ModelConfigOut",
+           "SetModelIn", "TestModelIn", "TestModelOut", "ReviewIn", "UserOut"]
 
 
 class AdminLoginRequest(BaseModel):
@@ -45,3 +46,36 @@ class AuditOut(BaseModel):
 class AdminMeOut(BaseModel):
     role: UserRole
     email: str | None
+
+
+class ModelInfo(BaseModel):
+    id: str
+    label: str
+    tier: str
+    note: str
+
+
+class ModelConfigOut(BaseModel):
+    active: str          # the model currently used for chat/voice
+    default: str         # the env default (used when no override is set)
+    is_override: bool    # True when `active` comes from the DB override, not the env default
+    provider: str        # the LLM provider (e.g. "openrouter")
+    catalog: list[ModelInfo]
+
+
+class SetModelIn(BaseModel):
+    model: str = Field(min_length=1, max_length=255)
+
+
+class TestModelIn(BaseModel):
+    model: str = Field(min_length=1, max_length=255)
+    prompt: str = Field(default="What contraception methods are available?",
+                        min_length=1, max_length=500)
+
+
+class TestModelOut(BaseModel):
+    model: str
+    ok: bool
+    latency_ms: int
+    sample: str = ""
+    error: str | None = None

@@ -7,7 +7,7 @@ from sqlalchemy import delete, func, select
 from app.core.config import get_settings
 from app.core.db import get_engine, get_sessionmaker
 from app.core.security import create_access_token, hash_secret
-from app.models import AuditLog, Document, DocumentChunk, User
+from app.models import AppSetting, AuditLog, Document, DocumentChunk, User
 from app.models.user import UserRole
 from app.repositories.documents import DocumentRepository
 from tests.test_identity import schema as _schema  # noqa: F401
@@ -38,10 +38,12 @@ def _env(monkeypatch, tmp_path):
 async def session():
     async with get_sessionmaker()() as s:
         await s.execute(delete(Document))
+        await s.execute(delete(AppSetting))
         await s.commit()
         yield s
         await s.rollback()
         await s.execute(delete(Document))
+        await s.execute(delete(AppSetting))
         await s.commit()
 
 
@@ -250,3 +252,63 @@ async def test_me_returns_authenticated_role(client, admin, reviewer, plain):
     assert r.json()["email"] == reviewer.email_
     assert (await client.get("/v1/admin/me", headers=_h(plain))).status_code == 403
     assert (await client.get("/v1/admin/me")).status_code == 401
+
+
+# --- LLM model management ---------------------------------------------------
+
+async def test_models_get_defaults_and_rbac(client, admin, reviewer, plain):
+    r = await client.get("/v1/admin/models", headers=_h(admin))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["active"] == body["default"]          # no override yet
+    assert body["is_override"] is False
+    assert any(m["id"] == "inclusionai/ling-3.1-flash" for m in body["catalog"])
+    # model management is admin-only
+    assert (await client.get("/v1/admin/models", headers=_h(reviewer))).status_code == 403
+    assert (await client.get("/v1/admin/models", headers=_h(plain))).status_code == 403
+    assert (await client.get("/v1/admin/models")).status_code == 401
+
+
+async def test_set_model_persists_and_audits(client, admin, session):
+    r = await client.put("/v1/admin/models", headers=_h(admin),
+                         json={"model": "openrouter/free"})
+    assert r.status_code == 200
+    assert r.json()["active"] == "openrouter/free" and r.json()["is_override"] is True
+    # reflected on a fresh GET
+    g = await client.get("/v1/admin/models", headers=_h(admin))
+    assert g.json()["active"] == "openrouter/free"
+    assert len(await _audit(session, "model.set", admin)) == 1
+
+
+async def test_set_model_is_admin_only(client, reviewer, plain):
+    assert (await client.put("/v1/admin/models", headers=_h(reviewer),
+                             json={"model": "x"})).status_code == 403
+    assert (await client.put("/v1/admin/models", headers=_h(plain),
+                             json={"model": "x"})).status_code == 403
+
+
+async def test_test_model_reports_ok_and_errors(client, admin, monkeypatch):
+    import app.services.admin as adminmod
+
+    class _FakeLLM:
+        def __init__(self, text): self._t = text
+        async def stream_chat(self, messages, **opts):
+            for part in self._t.split():
+                yield part + " "
+
+    def fake_get_llm(settings=None, model=None):
+        if model == "good/model":
+            return _FakeLLM("condoms and the pill are options")
+        raise RuntimeError("no endpoints for this model")
+
+    monkeypatch.setattr(adminmod, "get_llm", fake_get_llm)
+
+    ok = await client.post("/v1/admin/models/test", headers=_h(admin),
+                           json={"model": "good/model", "prompt": "hi"})
+    assert ok.status_code == 200 and ok.json()["ok"] is True
+    assert "condoms" in ok.json()["sample"] and ok.json()["latency_ms"] >= 0
+
+    bad = await client.post("/v1/admin/models/test", headers=_h(admin),
+                            json={"model": "bad/model", "prompt": "hi"})
+    assert bad.status_code == 200 and bad.json()["ok"] is False
+    assert "no endpoints" in bad.json()["error"]

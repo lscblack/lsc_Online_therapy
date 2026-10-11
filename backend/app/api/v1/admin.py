@@ -8,7 +8,18 @@ from app.core.db import get_session
 from app.core.ratelimit import rate_limit
 from app.models import User
 from app.models.document import DocStatus, ReviewStatus
-from app.schemas.admin import AdminLoginRequest, AdminMeOut, AuditOut, DocumentOut, ReviewIn, UserOut
+from app.schemas.admin import (
+    AdminLoginRequest,
+    AdminMeOut,
+    AuditOut,
+    DocumentOut,
+    ModelConfigOut,
+    ReviewIn,
+    SetModelIn,
+    TestModelIn,
+    TestModelOut,
+    UserOut,
+)
 from app.schemas.identity import TokenPair
 from app.services.admin import AdminService
 from app.services.identity import IdentityService, InvalidCredentials
@@ -119,6 +130,28 @@ async def disable_user(user_id: uuid.UUID, user: User = Depends(_admin),
         return await AdminService(session).disable_user(user, user_id)
     except LookupError as e:
         raise _404("User") from e
+
+
+@router.get("/models", response_model=ModelConfigOut)
+async def get_models(user: User = Depends(_admin),
+                     session: AsyncSession = Depends(get_session)) -> ModelConfigOut:
+    return ModelConfigOut(**await AdminService(session).get_model_config())
+
+
+@router.put("/models", response_model=ModelConfigOut)
+async def set_model(body: SetModelIn, user: User = Depends(_admin),
+                    session: AsyncSession = Depends(get_session)) -> ModelConfigOut:
+    try:
+        cfg = await AdminService(session).set_llm_model(user, body.model)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+    return ModelConfigOut(**cfg)
+
+
+@router.post("/models/test", response_model=TestModelOut)
+async def test_model(body: TestModelIn, user: User = Depends(_admin),
+                     session: AsyncSession = Depends(get_session)) -> TestModelOut:
+    return TestModelOut(**await AdminService(session).test_model(body.model, body.prompt))
 
 
 @router.get("/audit", response_model=list[AuditOut])

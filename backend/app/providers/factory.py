@@ -17,7 +17,8 @@ def _unknown(kind: str, name: str):
     return ProviderConfigError(f"Unknown {kind} provider: {name!r}")
 
 
-def get_llm(settings: Settings | None = None) -> LLMProvider:
+def get_llm(settings: Settings | None = None, model: str | None = None) -> LLMProvider:
+    """`model` overrides settings.llm_model (e.g. an admin-selected active model)."""
     s = settings or get_settings()
     if s.llm_provider == "fake":
         from app.providers.fakes import FakeLLM
@@ -25,7 +26,7 @@ def get_llm(settings: Settings | None = None) -> LLMProvider:
     if s.llm_provider == "openrouter":
         _require(s, OPENROUTER_API_KEY="openrouter_api_key", LLM_MODEL="llm_model")
         from app.providers.llm_openrouter import OpenRouterLLM
-        return OpenRouterLLM(s.openrouter_api_key, s.llm_model, s.openrouter_base_url,
+        return OpenRouterLLM(s.openrouter_api_key, (model or s.llm_model), s.openrouter_base_url,
                              max_tokens=s.llm_max_tokens)
     raise _unknown("llm", s.llm_provider)
 
