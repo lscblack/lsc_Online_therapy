@@ -2,8 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { chat } from "../../api/chat";
 import { ApiError } from "../../api/client";
 import { profile } from "../../api/profile";
-import LangToggle from "../../components/LangToggle";
-import ThemeToggle from "../../components/ThemeToggle";
 import { useT } from "../../i18n/useT";
 import type { ChatResponse } from "../../api/types";
 import Composer from "./Composer";
@@ -78,7 +76,7 @@ export default function ChatScreen() {
           <button type="button" className="voice-toggle" aria-pressed={voiceOpen} onClick={() => setVoiceOpen((v) => !v)}>
             {voiceOpen ? t("voiceClose") : t("voiceOpen")}
           </button>
-          <ThemeToggle /><LangToggle /></div>
+          </div>
       </header>
       <MessageList messages={messages} nickname={nickname} onRetry={onRetry} busy={busy} />
       {voiceOpen && <VoicePanel conversationId={convId.current} onConversationId={(id) => { convId.current = id; }} />}

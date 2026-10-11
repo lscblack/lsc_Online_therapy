@@ -52,5 +52,6 @@ export function useReplyAudio(result: VoiceChatResponse | null) {
     mutedRef.current = false; setMuted(false); el.current.muted = false;
     play();
   };
-  return { available, muted, toggleMute, replay };
+  const pause = useCallback(() => { el.current?.pause?.(); }, []);
+  return { available, muted, toggleMute, replay, pause };
 }

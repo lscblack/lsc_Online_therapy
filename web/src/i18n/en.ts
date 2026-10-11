@@ -141,6 +141,23 @@ const en = {
   adminReviewPending: "Pending",
   adminReviewApproved: "Approved",
   adminReviewRejected: "Rejected",
+  navMain: "Main navigation",
+  navMenu: "Menu",
+  setTitle: "Settings",
+  setAppearance: "Appearance and language",
+  setProfile: "Your profile",
+  setSave: "Save changes",
+  setSaving: "Saving...",
+  setSaved: "Saved. Your profile is up to date.",
+  setLoadError: "We could not load your profile right now.",
+  setSaveError: "We could not save that. Please try again.",
+  setRerun: "Re-run onboarding",
+  setRerunHint: "Go through the welcome questions again.",
+  setWipe: "Wipe my data",
+  setWipeHint: "Deletes your profile and health context from our servers. This cannot be undone.",
+  setWipeConfirm: "Wipe all your data?",
+  setWipeDone: "Your data has been wiped. You can start fresh any time.",
+  setWipeError: "We could not wipe your data. Please try again.",
 } as const;
 
 export type Dict = Record<keyof typeof en, string>;

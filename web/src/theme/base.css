@@ -17,3 +17,8 @@ h2 { font-size: var(--text-xl); }
 .btn-primary { background: var(--color-primary); color: var(--color-primary-contrast); border-color: transparent; }
 .btn-primary:hover { background: var(--color-primary); opacity: 0.9; }
 :focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.btn-ghost { background: transparent; }
+.btn-danger { color: var(--color-danger); border-color: var(--color-danger); }
+img, svg, video { max-width: 100%; }
+button, input, select, textarea { max-width: 100%; }
+body { overflow-wrap: break-word; }

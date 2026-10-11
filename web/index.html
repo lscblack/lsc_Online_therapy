@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>Ubuzima</title>
+    <script>
+      // Apply a stored theme choice before first paint (no flash). No stored choice = follow system via CSS.
+      try {
+        var t = localStorage.getItem("ubuzima.theme");
+        if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

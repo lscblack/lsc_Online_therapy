@@ -6,7 +6,7 @@ import Bubble from "../chat/Bubble";
 import { useReplyAudio } from "./useReplyAudio";
 import "./voice.css";
 
-type Phase = "idle" | "recording" | "processing";
+type Phase = "idle" | "requesting" | "recording" | "processing";
 type Problem = "denied" | "unsupported" | "error" | null;
 
 function fmt(s: number) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
@@ -57,17 +57,25 @@ export default function VoicePanel({ conversationId, onConversationId }: Props) 
     }
   }, [lang, onConversationId]);
 
+  const requesting = useRef(false);
   const start = async () => {
+    if (requesting.current || recorder.current) return; // a second tap must not open a second stream
     setProblem(null);
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") { setProblem("unsupported"); return; }
     let s: MediaStream;
+    requesting.current = true;
+    setPhase("requesting");
+    audio.pause(); // never talk over a new recording
     try {
       s = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
+      requesting.current = false;
+      if (alive.current) setPhase("idle");
       const name = (e as { name?: string })?.name;
       setProblem(name === "NotFoundError" || name === "NotSupportedError" ? "unsupported" : "denied");
       return;
     }
+    requesting.current = false;
     if (!alive.current) { s.getTracks().forEach((tr) => tr.stop()); return; }
     stream.current = s;
     const chunks: Blob[] = [];
@@ -89,7 +97,7 @@ export default function VoicePanel({ conversationId, onConversationId }: Props) 
 
   const stop = () => { try { recorder.current?.stop(); } catch { release(); setPhase("idle"); } };
   const recording = phase === "recording";
-  const busy = phase === "processing";
+  const busy = phase === "processing" || phase === "requesting";
   const status = recording ? `${t("voiceRecording")} (${fmt(elapsed)})` : busy ? t("voiceProcessing") : t("voiceIdleHint");
 
   return (

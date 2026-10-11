@@ -1,23 +1,12 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { profile } from "../../api/profile";
 import type { AgeBand, ProfileUpdate } from "../../api/types";
 import { useAuth } from "../../auth/useAuth";
-import { useT, type Lang, type TKey } from "../../i18n/useT";
+import { useT, type Lang } from "../../i18n/useT";
 import { markOnboarded } from "./onboarded";
+import { AGE_OPTIONS, GENDERS, INTERESTS, PRONOUNS, PRONOUN_KEYS, TONES } from "./options";
 import "./onboarding.css";
 
-const AGE_OPTIONS: [AgeBand, TKey][] = [
-  ["under15", "obAgeUnder15"], ["15_17", "obAge1517"], ["18_19", "obAge1819"],
-  ["20_24", "obAge2024"], ["25_plus", "obAge25"],
-];
-const GENDERS: [string, TKey][] = [["female", "obGenderFemale"], ["male", "obGenderMale"], ["nonbinary", "obGenderNonbinary"]];
-const PRONOUNS = ["she/her", "he/him", "they/them"];
-const PRONOUN_KEYS: TKey[] = ["obPronounsShe", "obPronounsHe", "obPronounsThey"];
-const TONES: [string, TKey][] = [["casual", "obToneCasual"], ["gentle", "obToneGentle"], ["direct", "obToneDirect"]];
-const INTERESTS: [string, TKey][] = [
-  ["sleep", "obInterestSleep"], ["stress", "obInterestStress"], ["relationships", "obInterestRelationships"],
-  ["nutrition", "obInterestNutrition"], ["sexual_health", "obInterestSexualHealth"], ["fitness", "obInterestFitness"],
-];
 const STEPS = 4;
 
 export default function Onboarding({ onDone }: { onDone: () => void }) {
@@ -34,10 +23,21 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const mounted = useRef(false);
+  // Keep keyboard / screen-reader users oriented: move focus to the new step heading (or first field).
+  useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return; }
+    if (headingRef.current) headingRef.current.focus();
+    else document.getElementById("ob-nick")?.focus();
+  }, [step]);
+  useEffect(() => { if (failed) errorRef.current?.focus(); }, [failed]);
+
   // Create the anonymous identity up front so the user always has a session.
   useEffect(() => { ensureAnon().catch(() => { /* retried on finish */ }); }, [ensureAnon]);
 
-  function buildPayload(): ProfileUpdate {
+  function buildPayload(skipSensitive: boolean): ProfileUpdate {
     const p: ProfileUpdate = {};
     if (nickname.trim()) p.nickname = nickname.trim();
     if (age) p.age_band = age as AgeBand;
@@ -45,15 +45,15 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
     if (pronouns) p.pronouns = pronouns;
     if (interests.length) p.interests = interests;
     if (tone) p.tone_pref = tone;
-    if (sensitive.trim()) p.sensitive_context = sensitive.trim();
+    if (!skipSensitive && sensitive.trim()) p.sensitive_context = sensitive.trim();
     return p;
   }
 
-  async function finish() {
+  async function finish(skipSensitive = false) {
     setBusy(true); setFailed(false);
     try {
       await ensureAnon();
-      const payload = buildPayload();
+      const payload = buildPayload(skipSensitive);
       if (Object.keys(payload).length > 0) await profile.put(payload);
       markOnboarded();
       onDone();
@@ -66,7 +66,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (step < STEPS - 1) setStep(step + 1); else void finish();
+    if (step < STEPS - 1) setStep(step + 1); else void finish(false);
   }
   const toggleInterest = (k: string) =>
     setInterests((xs) => (xs.includes(k) ? xs.filter((x) => x !== k) : [...xs, k]));
@@ -101,7 +101,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
           )}
           {step === 1 && (
             <>
-              <h2>{t("obStepAbout")} <span className="ob-opt">({t("obOptional")})</span></h2>
+              <h2 ref={headingRef} tabIndex={-1}>{t("obStepAbout")} <span className="ob-opt">({t("obOptional")})</span></h2>
               <div className="ob-field">
                 <label htmlFor="ob-age">{t("obAge")}</label>
                 <select id="ob-age" value={age} onChange={(e) => setAge(e.target.value)}>
@@ -127,7 +127,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
           )}
           {step === 2 && (
             <>
-              <h2>{t("obStepStyle")} <span className="ob-opt">({t("obOptional")})</span></h2>
+              <h2 ref={headingRef} tabIndex={-1}>{t("obStepStyle")} <span className="ob-opt">({t("obOptional")})</span></h2>
               <div className="ob-field" role="group" aria-label={t("obToneLabel")}>
                 <span className="ob-legend">{t("obToneLabel")}</span>
                 <div className="ob-chips">
@@ -150,7 +150,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
           )}
           {step === 3 && (
             <>
-              <h2>{t("obStepPrivate")} <span className="ob-opt">({t("obOptional")})</span></h2>
+              <h2 ref={headingRef} tabIndex={-1}>{t("obStepPrivate")} <span className="ob-opt">({t("obOptional")})</span></h2>
               <div className="ob-note">{t("obSensitiveNote")}</div>
               <div className="ob-field">
                 <label htmlFor="ob-sens">{t("obSensitiveLabel")}</label>
@@ -161,11 +161,11 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
           )}
         </div>
 
-        {failed && <p role="alert" className="ob-error">{t("obError")}</p>}
+        {failed && <p role="alert" className="ob-error" ref={errorRef} tabIndex={-1}>{t("obError")}</p>}
 
         <div className="ob-actions">
           {step > 0 && <button type="button" className="btn" onClick={() => setStep(step - 1)} disabled={busy}>{t("obBack")}</button>}
-          <button type="button" className="btn" onClick={() => void finish()} disabled={busy}>{t("obSkip")}</button>
+          <button type="button" className="btn" onClick={() => void finish(true)} disabled={busy}>{t("obSkip")}</button>
           <button type="submit" className="btn btn-primary" disabled={busy || (step === 0 && !nickname.trim())}>
             {busy ? t("obSaving") : step === STEPS - 1 ? t("obFinish") : t("obNext")}
           </button>

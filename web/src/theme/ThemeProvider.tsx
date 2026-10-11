@@ -19,7 +19,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const s = readStore(THEME_KEY);
     return s === "light" || s === "dark" ? s : null;
   });
-  const theme = chosen ?? systemTheme();
+  const [sys, setSys] = useState<Theme>(systemTheme);
+  // While following the system, track OS theme changes live.
+  useEffect(() => {
+    if (chosen) return;
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!mq?.addEventListener) return;
+    const on = () => setSys(mq.matches ? "dark" : "light");
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [chosen]);
+  const theme = chosen ?? sys;
   useEffect(() => {
     const el = document.documentElement;
     if (chosen) el.setAttribute("data-theme", chosen); else el.removeAttribute("data-theme");

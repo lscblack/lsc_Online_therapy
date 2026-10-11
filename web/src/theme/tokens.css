@@ -22,7 +22,7 @@
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
   --space-5: 24px; --space-6: 32px;
 
-  --font-sans: "Nunito", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
   --text-sm: 0.875rem;
   --text-base: 1rem;
   --text-lg: 1.25rem;

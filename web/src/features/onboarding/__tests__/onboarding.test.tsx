@@ -72,6 +72,22 @@ describe("Onboarding", () => {
     expect(localStorage.getItem(ONBOARDED_KEY)).toBe("1");
   });
 
+  it("skip on the sensitive step drops the typed sensitive_context", async () => {
+    const onDone = setup();
+    nick("Amina"); next(); next(); next();
+    fireEvent.change(screen.getByLabelText(en.obSensitiveLabel), { target: { value: "private text" } });
+    fireEvent.click(screen.getByRole("button", { name: en.obSkip }));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(put).toHaveBeenCalledWith({ nickname: "Amina" });
+    expect(put.mock.calls[0][0]).not.toHaveProperty("sensitive_context");
+  });
+
+  it("moves focus to the step heading on step change", () => {
+    setup();
+    nick("Amina"); next();
+    expect(screen.getByRole("heading", { level: 2 })).toHaveFocus();
+  });
+
   it("choosing rw switches the app language", () => {
     setup();
     expect(screen.getByTestId("lang")).toHaveTextContent("en");

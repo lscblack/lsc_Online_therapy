@@ -1,5 +1,5 @@
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.chat { display: flex; flex-direction: column; height: 100dvh; max-width: 720px; margin: 0 auto; padding: 0 var(--space-4); }
+.chat { display: flex; flex-direction: column; height: 100%; max-width: 720px; margin: 0 auto; padding: 0 var(--space-4); }
 .chat-bar { padding: var(--space-3) 0; flex: none; }
 .thread { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3) 0; }
 .welcome { margin: auto; text-align: center; max-width: 440px; padding: var(--space-5) var(--space-3); }
