@@ -35,6 +35,22 @@ class Settings(BaseSettings):
     rate_limit_auth_per_min: int = 10   # per IP: /identity/recover, /admin/login
     rate_limit_chat_per_min: int = 30   # per identity (token) else IP: chat + voice
 
+    # Realtime voice: streaming STT + VAD. streaming_stt_provider = auto|deepgram|vad|fake
+    # (auto: vendor for English when configured, else VAD-segmented batch STT).
+    streaming_stt_provider: str = "auto"
+    streaming_stt_api_key: str = ""
+    streaming_stt_model: str = "nova-2"
+    streaming_stt_url: str = "wss://api.deepgram.com/v1/listen"
+    streaming_stt_languages: str = "en"  # comma-separated codes the vendor handles
+    vad_backend: str = "auto"  # auto|silero|webrtc|energy
+    vad_sample_rate: int = 16000  # PCM16 mono
+    vad_frame_ms: int = 20
+    vad_silence_ms: int = 700  # trailing silence that ends an utterance
+    vad_min_speech_ms: int = 200  # shorter bursts are discarded as noise
+    vad_aggressiveness: int = 2  # webrtcvad 0-3
+    vad_energy_threshold: int = 500  # RMS for the energy fallback
+    vad_silero_threshold: float = 0.5
+
 
 @lru_cache
 def get_settings() -> Settings:

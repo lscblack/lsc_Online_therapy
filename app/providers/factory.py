@@ -1,4 +1,5 @@
 from app.core.config import Settings, get_settings
+from app.core.i18n import recognised_language
 from app.providers.base import EmbeddingProvider, LLMProvider, STTProvider, TTSProvider
 
 
@@ -68,3 +69,29 @@ def get_tts(settings: Settings | None = None) -> TTSProvider:
         from app.providers.stubs_digitalumuganda import DigitalUmugandaTTS
         return DigitalUmugandaTTS()
     raise _unknown("tts", s.tts_provider)
+
+
+def get_streaming_stt(language: str | None, settings: Settings | None = None):
+    """Pick a streaming STT for `language`.
+
+    fake -> FakeStreamingSTT; vad -> always VadSegmentedSTT; deepgram -> vendor for its
+    languages (raises if unconfigured), VAD-segmented otherwise; auto (default) -> vendor
+    for supported languages when a key is set, else VadSegmentedSTT. Kinyarwanda/unknown
+    languages always use VadSegmentedSTT (no word-level vendor support).
+    """
+    s = settings or get_settings()
+    mode = s.streaming_stt_provider
+    if mode == "fake":
+        from app.providers.streaming_stt import FakeStreamingSTT
+        return FakeStreamingSTT()
+    if mode not in ("auto", "deepgram", "vad"):
+        raise _unknown("streaming stt", mode)
+    from app.providers.streaming_stt import StreamingVendorSTT, VadSegmentedSTT
+    lang = recognised_language(language)
+    supported = {x.strip() for x in s.streaming_stt_languages.split(",") if x.strip()}
+    if mode != "vad" and lang is not None and lang in supported:
+        if mode == "deepgram" or s.streaming_stt_api_key:
+            _require(s, STREAMING_STT_API_KEY="streaming_stt_api_key")
+            return StreamingVendorSTT(s.streaming_stt_api_key, s.streaming_stt_model,
+                                      s.streaming_stt_url, s.vad_sample_rate)
+    return VadSegmentedSTT(get_stt(s), sample_rate=s.vad_sample_rate)
