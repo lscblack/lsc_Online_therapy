@@ -537,3 +537,66 @@ async def test_conversation_id_continuity(session, user):
     answers = [e for e in h.events if e["type"] == "answer"]
     assert {e["conversation_id"] for e in answers} == {str(cid)}
     await h.finish()
+
+
+async def test_explicit_barge_in_cannot_drop_crisis_referral_before_speaking(session, user):
+    h = Harness(session, user, FakeLLM(["no"]))
+    gate = asyncio.Event()
+
+    class SlowTTS(FakeTTS):
+        async def synthesize(self, text, language, voice):
+            await gate.wait()
+            return await super().synthesize(text, language, voice)
+
+    h.live._tts = SlowTTS()
+    await h.start()
+    assert h.live._speak_start == 0.0  # first-turn case: stale timer
+    await h.say("I want to kill myself")
+    await until(lambda: "safety_flags" in h.types())  # respond() returned, synth pending
+    assert h.live.state == State.THINKING
+    h.clock.now += 100  # a stale timer would make _barge_allowed() true
+    turn = h.live._turn
+    await h.live.barge_in()
+    assert not turn.done() and h.track.cancels == 0 and "barge_in" not in h.types()
+    gate.set()
+    await until(lambda: h.track.played)
+    assert t("crisis_self_harm", "en") in h.track.played[0].decode()
+    await h.live.barge_in()  # SPEAKING but inside the mandatory window
+    assert h.track.cancels == 0
+    h.clock.now += 3.5
+    await h.live.barge_in()  # window elapsed: honored
+    await until(lambda: "barge_in" in h.types())
+    assert h.track.cancels == 1 and h.live.state == State.LISTENING
+    await h.finish()
+
+
+async def test_cancel_mid_respond_rolls_back_session_and_next_turn_works(session, user, monkeypatch):
+    h = Harness(session, user, FakeLLM(["Hello there friend."]))
+    rollbacks = []
+
+    class RecSession:
+        async def rollback(self):
+            rollbacks.append(1)
+
+    h.live._session = RecSession()
+    started = asyncio.Event()
+    orig = h.live._chat.respond
+    n = []
+
+    async def maybe_hang(*a, **k):
+        n.append(1)
+        if len(n) == 1:
+            started.set()
+            await asyncio.sleep(60)
+        return await orig(*a, **k)
+
+    monkeypatch.setattr(h.live._chat, "respond", maybe_hang)
+    await h.start()
+    await h.say("first question")
+    await started.wait()
+    await h.live.barge_in()  # lands mid-respond()
+    assert rollbacks == [1] and h.live.state == State.LISTENING
+    await h.say("second question")
+    await until(lambda: h.track.played)
+    assert "error" not in h.types()
+    await h.finish()

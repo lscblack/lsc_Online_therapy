@@ -76,6 +76,7 @@ class LiveSession:
         self.language = normalize_language(language)
         self.conversation_id: uuid.UUID | None = conversation_id
         self.state = State.IDLE
+        self._session = session
         self._chat = chat or ChatService(session, llm=llm)
         self._stt = stt
         self._tts = tts
@@ -281,7 +282,9 @@ class LiveSession:
         """Client-requested interrupt (control channel). Honors the crisis-line protection."""
         if self._closed.is_set() or self.state not in (State.SPEAKING, State.THINKING):
             return
-        if self._turn_crisis and not self._barge_allowed():
+        # Same rule as _interruptible(): a crisis turn is protected from respond() until it has
+        # been SPEAKING for crisis_min_play_ms (_speak_start is stale before SPEAKING).
+        if self._turn_crisis and not (self.state == State.SPEAKING and self._barge_allowed()):
             return
         await self._interrupt()
 
@@ -292,6 +295,7 @@ class LiveSession:
         self._interrupting = True
         try:
             was_speaking = self.state == State.SPEAKING
+            mid_respond = not self._respond_done
             if self._track is not None:
                 self._track.cancel()
             turn, self._turn = self._turn, None
@@ -299,6 +303,8 @@ class LiveSession:
             if turn is not None and not turn.done():
                 turn.cancel()
                 await asyncio.wait({turn})
+                if mid_respond:
+                    await self._rollback()  # respond() may have died mid-query
             self._speech_ms = 0
             self._respond_done = self._turn_crisis = False
             if to_listening:
@@ -307,6 +313,12 @@ class LiveSession:
                 self._emit(type="barge_in")
         finally:
             self._interrupting = False
+
+    async def _rollback(self) -> None:
+        try:
+            await self._session.rollback()
+        except Exception as e:  # noqa: BLE001
+            logger.error("session rollback failed (%s)", type(e).__name__)
 
     @staticmethod
     def _substantive(text: str) -> bool:
