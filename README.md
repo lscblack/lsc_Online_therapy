@@ -75,6 +75,6 @@ always returns the STUN server (`STUN_URL`) and, when `TURN_SECRET` is set, a TU
 (`TURN_URL`) with short-lived credentials (coturn `use-auth-secret`: username `<expiry>:<id>`,
 credential = base64 HMAC-SHA1 over it, valid `TURN_TTL` seconds).
 
-- `docker compose up coturn` runs a **dev-only** coturn sharing `TURN_SECRET` (compose requires it to be set). It is not hardened.
+- `docker compose --profile realtime up coturn` runs a **dev-only** coturn sharing `TURN_SECRET` (must be set in `.env`; opt-in profile so db/api are unaffected). It is not hardened.
 - Production needs a publicly reachable TURN server: set `--external-ip`, open 3478 (udp+tcp) and the relay port range in the firewall, and add TLS (`turns:` on 5349).
 - Without `TURN_SECRET` only STUN is offered; clients behind symmetric NATs or strict firewalls will often fail to connect.

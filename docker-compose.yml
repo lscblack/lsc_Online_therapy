@@ -31,12 +31,13 @@ services:
   # to the public IP in production. Open 3478 (udp+tcp) and the relay range in the firewall.
   coturn:
     image: coturn/coturn
+    profiles: [realtime]  # opt-in: docker compose --profile realtime up coturn (requires TURN_SECRET)
     command:
       - -n
       - --log-file=stdout
       - --realm=${TURN_REALM:-ubuzima.local}
       - --use-auth-secret
-      - --static-auth-secret=${TURN_SECRET:?set TURN_SECRET in .env}
+      - --static-auth-secret=${TURN_SECRET:-}
       - --fingerprint
       - --no-cli
       - --no-multicast-peers
