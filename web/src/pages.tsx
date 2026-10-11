@@ -1,9 +1,14 @@
 import LangToggle from "./components/LangToggle";
 import ThemeToggle from "./components/ThemeToggle";
+import { useState } from "react";
 import { useT } from "./i18n/useT";
+import Onboarding from "./features/onboarding/Onboarding";
+import { isOnboarded } from "./features/onboarding/onboarded";
 
 export function Home() {
   const { t } = useT();
+  const [onboarded, setOnboarded] = useState(isOnboarded);
+  if (!onboarded) return <Onboarding onDone={() => setOnboarded(true)} />;
   return (
     <main className="page">
       <header className="bar">
