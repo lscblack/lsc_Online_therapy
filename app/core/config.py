@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     vad_energy_threshold: int = 500  # RMS for the energy fallback
     vad_silero_threshold: float = 0.5
 
+    # Realtime voice: WebRTC ICE. TURN is enabled only when turn_secret is set
+    # (must equal coturn's static-auth-secret); otherwise STUN-only.
+    stun_url: str = "stun:stun.l.google.com:19302"
+    turn_url: str = "turn:localhost:3478"
+    turn_secret: str = ""
+    turn_ttl: int = 3600  # seconds of validity for ephemeral TURN credentials
+
 
 @lru_cache
 def get_settings() -> Settings:

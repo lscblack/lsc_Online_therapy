@@ -68,3 +68,13 @@ Tests run only against a database whose name ends in `_test` (`TEST_DATABASE_URL
 docker compose exec db psql -U postgres -c "CREATE DATABASE ubuzima_test;"
 ```
 Compose reads `POSTGRES_USER` / `POSTGRES_PASSWORD` from `.env`; no passwords are hard-coded.
+
+## Realtime voice: TURN/STUN
+WebRTC peers need ICE servers to connect across NATs. `app/realtime/turn.py` (`get_ice_servers`)
+always returns the STUN server (`STUN_URL`) and, when `TURN_SECRET` is set, a TURN entry
+(`TURN_URL`) with short-lived credentials (coturn `use-auth-secret`: username `<expiry>:<id>`,
+credential = base64 HMAC-SHA1 over it, valid `TURN_TTL` seconds).
+
+- `docker compose up coturn` runs a **dev-only** coturn sharing `TURN_SECRET` (compose requires it to be set). It is not hardened.
+- Production needs a publicly reachable TURN server: set `--external-ip`, open 3478 (udp+tcp) and the relay port range in the firewall, and add TLS (`turns:` on 5349).
+- Without `TURN_SECRET` only STUN is offered; clients behind symmetric NATs or strict firewalls will often fail to connect.

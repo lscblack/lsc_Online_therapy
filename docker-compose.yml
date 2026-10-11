@@ -25,5 +25,29 @@ services:
     depends_on:
       db:
         condition: service_healthy
+  # DEV ONLY / NEEDS HARDENING before production (see README "Realtime voice: TURN/STUN").
+  # TURN relay for WebRTC. Ephemeral creds: the API signs them with TURN_SECRET (use-auth-secret).
+  # Relay range is kept small (49160-49200/udp) for dev; widen it and set --external-ip
+  # to the public IP in production. Open 3478 (udp+tcp) and the relay range in the firewall.
+  coturn:
+    image: coturn/coturn
+    command:
+      - -n
+      - --log-file=stdout
+      - --realm=${TURN_REALM:-ubuzima.local}
+      - --use-auth-secret
+      - --static-auth-secret=${TURN_SECRET:?set TURN_SECRET in .env}
+      - --fingerprint
+      - --no-cli
+      - --no-multicast-peers
+      - --no-tlsv1
+      - --no-tlsv1_1
+      - --min-port=49160
+      - --max-port=49200
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "49160-49200:49160-49200/udp"
+    restart: unless-stopped
 volumes:
   ubuzima_pgdata:
