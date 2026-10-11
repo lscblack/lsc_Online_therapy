@@ -51,3 +51,39 @@ def test_segmenter_two_utterances():
     for f in [LOUD] * 3 + [QUIET] * 2 + [LOUD] * 3 + [QUIET] * 2:
         out += s.feed(f)
     assert [e.type for e in out] == ["speech_start", "speech_end"] * 2
+
+
+def test_single_flicker_frame_tolerated_before_confirmation():
+    s = VadSegmenter(ScriptedBackend(), frame_ms=20, silence_ms=100, min_speech_ms=80)
+    out = []
+    for f in [LOUD, LOUD, QUIET, LOUD, LOUD]:  # one flicker frame inside the onset
+        out += s.feed(f)
+    assert [e.type for e in out] == ["speech_start"]
+    s2 = VadSegmenter(ScriptedBackend(), frame_ms=20, silence_ms=100, min_speech_ms=80)
+    out = []
+    for f in [LOUD, LOUD, QUIET, QUIET, LOUD, LOUD]:  # two quiet frames reset the candidate
+        out += s2.feed(f)
+    assert out == []
+
+
+async def test_segment_closes_frames_on_early_exit():
+    closed = []
+
+    async def src():
+        try:
+            for _ in range(100):
+                yield LOUD
+        finally:
+            closed.append(True)
+
+    g = vad.segment(src(), backend=ScriptedBackend(), frame_ms=20, silence_ms=100, min_speech_ms=40)
+    async for e in g:
+        break
+    await g.aclose()
+    assert closed == [True]
+
+
+def test_no_shared_default_backend():
+    from app.core.config import Settings
+    s = Settings(_env_file=None, database_url="postgresql+asyncpg://x/y", vad_backend="energy")
+    assert vad.make_backend(s) is not vad.make_backend(s)

@@ -1,4 +1,6 @@
 """Streaming STT: interface, VAD-segmented batch adapter, word-level vendor, and a fake."""
+import asyncio
+import contextlib
 import io
 import json
 import wave
@@ -47,45 +49,68 @@ class VadSegmentedSTT:
 
     async def stream(self, frames: AsyncIterator[bytes], language: str | None
                      ) -> AsyncIterator[STTEvent]:
-        async for ev in self._vad(frames):
-            if ev.type != "speech_end" or not ev.audio:
-                continue
-            t = await self._stt.transcribe(pcm_to_wav(ev.audio, self._rate), language,
-                                           filename="utterance.wav")
-            text = (t.text or "").strip()
-            if text:
-                yield STTEvent(text=text, is_final=True, language=t.language or language)
+        events = self._vad(frames)
+        try:
+            async for ev in events:
+                if ev.type != "speech_end" or not ev.audio:
+                    continue
+                t = await self._stt.transcribe(pcm_to_wav(ev.audio, self._rate), language,
+                                               filename="utterance.wav")
+                text = (t.text or "").strip()
+                if text:
+                    yield STTEvent(text=text, is_final=True, language=t.language or language)
+        finally:  # consumer stopped early (disconnect/barge-in): no leaked generators
+            for it in (events, frames):
+                aclose = getattr(it, "aclose", None)
+                if aclose:
+                    await aclose()
 
 
 class StreamingVendorSTT:
     """Deepgram-style websocket streaming (English fast path). Network only; not unit-tested."""
 
-    def __init__(self, api_key: str, model: str, url: str, sample_rate: int = 16000):
+    def __init__(self, api_key: str, model: str, url: str, sample_rate: int = 16000,
+                 languages: tuple[str, ...] = ("en",)):
         if not api_key:
             from app.providers.factory import ProviderConfigError
             raise ProviderConfigError("STREAMING_STT_API_KEY must be set to use this provider")
         self._key, self._model, self._url, self._rate = api_key, model, url, sample_rate
+        self._languages = tuple(languages)
 
     async def stream(self, frames: AsyncIterator[bytes], language: str | None
                      ) -> AsyncIterator[STTEvent]:
-        import asyncio
+        from app.core.i18n import recognised_language
+
+        lang = recognised_language(language) if language else "en"
+        if lang not in self._languages:  # defense in depth; the factory already routes
+            from app.providers.factory import ProviderConfigError
+            await _aclose(frames)
+            raise ProviderConfigError(f"Streaming vendor does not support language {language!r}")
 
         import websockets  # lazy
 
         qs = (f"model={self._model}&encoding=linear16&sample_rate={self._rate}&channels=1"
-              f"&interim_results=true&endpointing=300&language={language or 'en'}")
-        async with websockets.connect(
-            f"{self._url}?{qs}", additional_headers={"Authorization": f"Token {self._key}"}
-        ) as ws:
-            async def pump():
-                try:
-                    async for f in frames:
-                        await ws.send(f)
-                finally:
-                    await ws.send(json.dumps({"type": "CloseStream"}))
+              f"&interim_results=true&endpointing=300&language={lang}")
+        pump_error: list[BaseException] = []
+        task = None
+        try:
+            async with websockets.connect(
+                f"{self._url}?{qs}", additional_headers={"Authorization": f"Token {self._key}"}
+            ) as ws:
+                async def pump():
+                    try:
+                        async for f in frames:
+                            await ws.send(f)
+                        with contextlib.suppress(Exception):
+                            await ws.send(json.dumps({"type": "CloseStream"}))
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as e:  # surfaced to the consumer below
+                        pump_error.append(e)
+                        with contextlib.suppress(Exception):
+                            await ws.close()
 
-            task = asyncio.create_task(pump())
-            try:
+                task = asyncio.create_task(pump())
                 async for raw in ws:
                     msg = json.loads(raw)
                     if msg.get("type") == "Error":
@@ -93,9 +118,20 @@ class StreamingVendorSTT:
                     alts = (msg.get("channel") or {}).get("alternatives") or []
                     text = (alts[0].get("transcript") if alts else "") or ""
                     if text.strip():
-                        yield STTEvent(text.strip(), bool(msg.get("is_final")), language)
-            finally:
+                        yield STTEvent(text.strip(), bool(msg.get("is_final")), lang)
+        finally:
+            if task is not None:
                 task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            await _aclose(frames)
+        if pump_error:
+            raise ProviderError(f"streaming STT upstream failed: {pump_error[0]!r}") from pump_error[0]
+
+
+async def _aclose(it) -> None:
+    aclose = getattr(it, "aclose", None)
+    if aclose:
+        await aclose()
 
 
 class FakeStreamingSTT:

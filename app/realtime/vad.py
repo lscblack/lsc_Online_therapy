@@ -6,6 +6,7 @@ speech_end events (speech_end carries the utterance audio). Heavy models are loa
 lazily behind a lock so the app and unit tests never import torch/webrtcvad.
 """
 import array
+import asyncio
 import math
 import threading
 from collections.abc import AsyncIterator
@@ -56,28 +57,45 @@ class WebRtcBackend:
         return self._vad.is_speech(frame, self._rate)
 
 
+_silero_model = None  # module-level: loaded once, used as a read-only template
+_silero_lock = threading.Lock()
+
+
+def _load_silero_template():
+    global _silero_model
+    if _silero_model is None:
+        with _silero_lock:
+            if _silero_model is None:
+                from silero_vad import load_silero_vad  # lazy: imports torch
+
+                _silero_model = load_silero_vad()
+    return _silero_model
+
+
 class SileroBackend:
-    """silero-vad; accumulates PCM into 512-sample windows (16 kHz) and keeps the last verdict."""
+    """silero-vad. One instance per stream: it owns a private copy of the (stateful) model
+    and its PCM window buffer. Weights are loaded once per process. Inference is blocking,
+    so segment() runs it via asyncio.to_thread (`blocking = True`)."""
 
     WINDOW = 512
+    blocking = True
 
     def __init__(self, sample_rate: int, threshold: float):
         self._rate, self._thr = sample_rate, threshold
         self._model = None
-        self._lock = threading.Lock()
         self._buf = b""
         self._last = False
 
-    def _load(self):
+    def load(self) -> None:
         if self._model is None:
-            with self._lock:
-                if self._model is None:
-                    from silero_vad import load_silero_vad  # lazy: imports torch
+            import copy
 
-                    self._model = load_silero_vad()
+            self._model = copy.deepcopy(_load_silero_template())  # per-stream recurrent state
+            if hasattr(self._model, "reset_states"):
+                self._model.reset_states()
 
     def is_speech(self, frame: bytes) -> bool:
-        self._load()
+        self.load()
         import numpy as np
         import torch
 
@@ -124,12 +142,14 @@ class VadSegmenter:
         self._speech_ms = 0
         self._silence = 0
         self._pending: list[bytes] = []  # speech candidate not yet confirmed >= min_speech
+        self._gap = 0  # consecutive non-speech frames inside a pending candidate
 
     def feed(self, frame: bytes) -> list[VadEvent]:
         out: list[VadEvent] = []
         speech = self._b.is_speech(frame)
         if not self._active:
             if speech:
+                self._gap = 0
                 self._pending.append(frame)
                 self._speech_ms += self._frame_ms
                 if self._speech_ms >= self._min_ms:
@@ -138,8 +158,11 @@ class VadSegmenter:
                     self._pending = []
                     self._silence = 0
                     out.append(VadEvent("speech_start"))
+            elif self._pending and self._gap < 1:
+                self._gap += 1  # tolerate a single flicker frame; keep audio contiguous
+                self._pending.append(frame)
             else:
-                self._pending, self._speech_ms = [], 0
+                self._pending, self._speech_ms, self._gap = [], 0, 0
             return out
         self._buf.append(frame)
         if speech:
@@ -157,25 +180,13 @@ class VadSegmenter:
     def _end(self) -> VadEvent:
         ev = VadEvent("speech_end", audio=b"".join(self._buf))
         self._active, self._buf, self._pending = False, [], []
-        self._speech_ms = self._silence = 0
+        self._speech_ms = self._silence = self._gap = 0
         return ev
 
 
 def is_speech(frame: bytes, backend: VadBackend | None = None) -> bool:
-    return (backend or _default_backend()).is_speech(frame)
-
-
-_default: VadBackend | None = None
-_default_lock = threading.Lock()
-
-
-def _default_backend() -> VadBackend:
-    global _default
-    if _default is None:
-        with _default_lock:
-            if _default is None:
-                _default = make_backend()
-    return _default
+    """One-off verdict. With no backend a fresh one is made (never shared across callers)."""
+    return (backend or make_backend()).is_speech(frame)
 
 
 async def segment(
@@ -187,19 +198,31 @@ async def segment(
     min_speech_ms: int | None = None,
     settings: Settings | None = None,
 ) -> AsyncIterator[VadEvent]:
-    """Endpoint a PCM frame stream. Inject `backend` (and thresholds) in tests."""
+    """Endpoint a PCM frame stream. Each call gets its own backend/state unless one is
+    injected (tests). Blocking backends (Silero) run in a worker thread. Closing this
+    generator early also closes `frames`."""
     s = settings or get_settings()
+    be = backend or make_backend(s)
+    blocking = bool(getattr(be, "blocking", False))
     seg = VadSegmenter(
-        backend or make_backend(s),
+        be,
         frame_ms or s.vad_frame_ms,
         silence_ms if silence_ms is not None else s.vad_silence_ms,
         min_speech_ms if min_speech_ms is not None else s.vad_min_speech_ms,
     )
-    async for f in frames:
-        for ev in seg.feed(f):
+    try:
+        if blocking and hasattr(be, "load"):
+            await asyncio.to_thread(be.load)
+        async for f in frames:
+            events = await asyncio.to_thread(seg.feed, f) if blocking else seg.feed(f)
+            for ev in events:
+                yield ev
+        for ev in seg.flush():
             yield ev
-    for ev in seg.flush():
-        yield ev
+    finally:
+        aclose = getattr(frames, "aclose", None)
+        if aclose:
+            await aclose()
 
 
 detect = segment  # alias used by the task brief

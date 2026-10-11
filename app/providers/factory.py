@@ -93,5 +93,6 @@ def get_streaming_stt(language: str | None, settings: Settings | None = None):
         if mode == "deepgram" or s.streaming_stt_api_key:
             _require(s, STREAMING_STT_API_KEY="streaming_stt_api_key")
             return StreamingVendorSTT(s.streaming_stt_api_key, s.streaming_stt_model,
-                                      s.streaming_stt_url, s.vad_sample_rate)
+                                      s.streaming_stt_url, s.vad_sample_rate,
+                                      tuple(sorted(supported)))
     return VadSegmentedSTT(get_stt(s), sample_rate=s.vad_sample_rate)
