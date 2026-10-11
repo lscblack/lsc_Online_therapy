@@ -26,6 +26,15 @@ run once: `docker compose exec api alembic upgrade head`).
   `RATE_LIMIT_CHAT_PER_MIN` (30, per identity: chat + voice). In-process only, so limits are
   per worker, not shared; use a gateway/Redis limiter when scaling out.
 
+### Behind a proxy / gateway (required for correct rate limiting)
+The limiter keys on the client IP. Behind a gateway every request otherwise appears to come
+from the proxy, making the 10/min auth budget global (one attacker could lock out all admin
+logins/recoveries). Set `TRUSTED_PROXIES` (comma-separated IPs/CIDRs of your gateway; the app
+then honours `X-Forwarded-For`, taking the right-most non-trusted hop) and run uvicorn with
+`--proxy-headers --forwarded-allow-ips <gateway IPs>` (the Docker image does this via
+`FORWARDED_ALLOW_IPS`, default 127.0.0.1). With `TRUSTED_PROXIES` empty (default) the header is
+ignored, so clients cannot spoof their IP. Not behind a proxy: change nothing.
+
 ### First admin
 There is no public admin signup. Create one with the CLI (no credentials are hard-coded):
 `python -m app.cli create_admin --email you@org.example [--role reviewer]`. The password is
@@ -35,8 +44,9 @@ Then `POST /v1/admin/login`.
 ### Behaviour notes
 - Errors: `{"error": {"code", "message", "details"?}}` for every 4xx/5xx; validation details
   list only `loc` + `message` (inputs are never echoed). 500s are generic.
-- `Accept-Language: en|rw` sets the reply language for chat/voice when the request body does
-  not specify `language`.
+- `Accept-Language: en|rw` sets the reply language (answer + TTS) for chat/voice when the request
+  does not specify `language`. It is never used as the STT language hint; STT auto-detects unless
+  the explicit `language` form field is sent.
 - Startup seeds placeholder referrals (idempotent; verified rows are never overwritten); if the
   DB is not migrated it logs a warning and continues.
 - `WS /v1/live` is a RESERVED stub for future realtime voice; it only sends

@@ -195,3 +195,21 @@ async def test_startup_seed_survives_missing_schema(monkeypatch):
             return False
     monkeypatch.setattr("app.main.get_sessionmaker", lambda: (lambda: Boom()))
     assert await seed_referrals_on_startup() == 0
+
+
+def _req(peer, xff=None):
+    from starlette.requests import Request
+    hdrs = [(b"x-forwarded-for", xff.encode())] if xff else []
+    return Request({"type": "http", "headers": hdrs, "client": (peer, 1)})
+
+
+def test_client_ip_proxy_handling(monkeypatch):
+    from app.core.ratelimit import _client_ip
+    s = get_settings()
+    monkeypatch.setattr(s, "trusted_proxies", "")
+    assert _client_ip(_req("10.0.0.1", "1.2.3.4")) == "10.0.0.1"  # header ignored by default
+    monkeypatch.setattr(s, "trusted_proxies", "10.0.0.0/8")
+    assert _client_ip(_req("10.0.0.1", "1.2.3.4")) == "1.2.3.4"
+    assert _client_ip(_req("10.0.0.1", "6.6.6.6, 1.2.3.4, 10.0.0.2")) == "1.2.3.4"  # spoof-safe
+    assert _client_ip(_req("8.8.8.8", "1.2.3.4")) == "8.8.8.8"  # untrusted peer
+    assert _client_ip(_req("10.0.0.1")) == "10.0.0.1"

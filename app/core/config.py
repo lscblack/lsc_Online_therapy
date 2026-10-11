@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     retrieval_min_score: float = 0.3
     storage_dir: str = "./var/uploads"
     # In-process rate limits (requests/minute; <=0 disables). Not shared across workers.
+    # Comma-separated proxy IPs/CIDRs whose X-Forwarded-For is trusted for the limiter's client IP.
+    # Empty (default) = ignore the header and use the socket peer.
+    trusted_proxies: str = ""
     rate_limit_enabled: bool = True
     rate_limit_auth_per_min: int = 10   # per IP: /identity/recover, /admin/login
     rate_limit_chat_per_min: int = 30   # per identity (token) else IP: chat + voice

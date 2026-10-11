@@ -42,10 +42,10 @@ async def _read_audio(file: UploadFile) -> bytes:
 
 @router.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe(audio: UploadFile = File(...), language: str | None = Form(None),
-                     user: User = Depends(current_user), hdr_lang: str | None = Depends(accept_language),
+                     user: User = Depends(current_user),
                      session: AsyncSession = Depends(get_session)) -> TranscribeResponse:
     data = await _read_audio(audio)
-    tr = await VoiceService(session).transcribe(data, language or hdr_lang, _filename(audio))
+    tr = await VoiceService(session).transcribe(data, language, _filename(audio))
     return TranscribeResponse(text=tr.text, language=tr.language)
 
 
@@ -65,8 +65,8 @@ async def voice_chat(audio: UploadFile = File(...), language: str | None = Form(
                      session: AsyncSession = Depends(get_session)) -> VoiceChatResponse:
     data = await _read_audio(audio)
     try:
-        r = await VoiceService(session).voice_chat(user, data, language or hdr_lang, voice, conversation_id,
-                                                   _filename(audio))
+        r = await VoiceService(session).voice_chat(user, data, language, voice, conversation_id,
+                                                   _filename(audio), reply_language=hdr_lang)
     except ConversationNotFound as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found") from e
     except EmptyTranscript as e:

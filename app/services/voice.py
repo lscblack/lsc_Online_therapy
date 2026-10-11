@@ -49,12 +49,14 @@ class VoiceService:
 
     async def voice_chat(self, user: User, audio: bytes, language: str | None = None,
                          voice: str | None = None, conversation_id: uuid.UUID | None = None,
-                         filename: str | None = None) -> VoiceChatResult:
+                         filename: str | None = None,
+                         reply_language: str | None = None) -> VoiceChatResult:
+        # `language` is the explicit STT hint only; reply_language (e.g. Accept-Language) never is.
         transcript = await self.transcribe(audio, language, filename)
         if not transcript.text or not transcript.text.strip():
             raise EmptyTranscript("no speech recognised")
         result = await self.chat.respond(user, transcript.text, conversation_id,
-                                         language or transcript.language, mode="voice")
+                                         language or reply_language or transcript.language, mode="voice")
         # Citation markers are stripped for speech only; result.answer keeps them.
         spoken = _CITE.sub("", result.answer).strip()
         try:

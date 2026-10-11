@@ -17,8 +17,9 @@ async def seed_referrals_on_startup() -> int:
         async with get_sessionmaker()() as session:
             return await seed_referrals(session)
     except Exception as e:  # noqa: BLE001
-        log.warning("Referral seeding skipped (%s: run `alembic upgrade head`?)",
-                    type(e).__name__)
+        log.warning("Referral seeding skipped (%s); if the schema is missing run "
+                    "`alembic upgrade head`", type(e).__name__)
+        log.debug("Referral seeding error detail: %s", e)
         return 0
 
 

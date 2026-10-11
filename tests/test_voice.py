@@ -189,3 +189,40 @@ async def test_filename_derived_from_content_type():
     f = UF(file=__import__("io").BytesIO(b"x"), filename=None,
            headers=Headers({"content-type": "audio/webm;codecs=opus"}))
     assert _filename(f) == "audio.webm"
+
+
+async def test_accept_language_never_becomes_stt_hint(client, monkeypatch):
+    import app.services.voice as voice_mod
+    from app.providers.fakes import FakeTTS
+    from app.services.chat import ChatService
+    seen = {}
+
+    class SpySTT:
+        async def transcribe(self, audio, language, filename=None):
+            seen["stt"] = language
+            from app.providers.base import Transcript
+            return Transcript(text="hello there", language=None)
+
+    class SpyTTS(FakeTTS):
+        async def synthesize(self, text, language, voice):
+            seen["tts"] = language
+            return await super().synthesize(text, language, voice)
+
+    real = ChatService.respond
+
+    async def spy_respond(self, user, message, cid, language=None, mode="text"):
+        seen["reply"] = language
+        return await real(self, user, message, cid, language, mode=mode)
+    monkeypatch.setattr(ChatService, "respond", spy_respond)
+    monkeypatch.setattr(voice_mod, "get_stt", lambda: SpySTT())
+    monkeypatch.setattr(voice_mod, "get_tts", lambda: SpyTTS())
+    h = await _headers(client)
+    files = {"audio": ("a.webm", b"zzz", "audio/webm")}
+    r = await client.post("/v1/voice/chat", headers={**h, "Accept-Language": "rw"}, files=files)
+    assert r.status_code == 200, r.text
+    assert seen["stt"] is None and seen["reply"] == "rw" and seen["tts"] == "rw"
+    await client.post("/v1/voice/transcribe", headers={**h, "Accept-Language": "en-US"}, files=files)
+    assert seen["stt"] is None
+    await client.post("/v1/voice/transcribe", headers={**h, "Accept-Language": "en-US"},
+                      files=files, data={"language": "rw"})
+    assert seen["stt"] == "rw"

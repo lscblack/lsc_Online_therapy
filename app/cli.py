@@ -2,6 +2,7 @@
 import argparse
 import asyncio
 import getpass
+import secrets
 import sys
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +29,6 @@ async def create_admin(session: AsyncSession, email: str, password: str,
     repo = UserRepository(session)
     if await repo.get_by_email(email):
         raise AdminExists(f"user {email} already exists")
-    import secrets
     user = await repo.create(anon_id=f"admin-{secrets.token_urlsafe(16)}", email=email,
                              password_hash=await ahash_secret(password), role=role)
     await session.commit()

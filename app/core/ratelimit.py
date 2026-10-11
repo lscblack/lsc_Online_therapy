@@ -3,6 +3,8 @@
 MVP caveat: state is per process, so limits are NOT shared across uvicorn workers/replicas.
 Use a shared store (e.g. Redis) or a gateway limiter when scaling out.
 """
+import hashlib
+import ipaddress
 import threading
 import time
 from collections import defaultdict, deque
@@ -39,8 +41,26 @@ def _check(key: str, limit: int) -> float | None:
         return None
 
 
+def _trusted(peer: str) -> bool:
+    nets = [n.strip() for n in get_settings().trusted_proxies.split(",") if n.strip()]
+    try:
+        addr = ipaddress.ip_address(peer)
+        return any(addr in ipaddress.ip_network(n, strict=False) for n in nets)
+    except ValueError:
+        return False
+
+
 def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
+    """Socket peer, unless it is a trusted proxy: then the right-most X-Forwarded-For entry
+    that is not itself a trusted proxy (the real client; left entries are client-forgeable)."""
+    peer = request.client.host if request.client else "unknown"
+    if not _trusted(peer):
+        return peer
+    hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
+    for hop in reversed(hops):
+        if not _trusted(hop):
+            return hop
+    return peer
 
 
 def _key_from_token(request: Request) -> str:
@@ -48,7 +68,6 @@ def _key_from_token(request: Request) -> str:
     still happens in current_user); falls back to IP."""
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer ") and len(auth) > 20:
-        import hashlib
         return "tok:" + hashlib.sha256(auth[7:].encode()).hexdigest()[:16]
     return "ip:" + _client_ip(request)
 
