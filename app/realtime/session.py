@@ -34,7 +34,7 @@ from app.core.config import get_settings
 from app.core.i18n import normalize_language
 from app.models import User
 from app.services.chat import ChatService
-from app.services.voice import _CITE  # same citation-marker stripping as turn-based voice
+from app.services.voice import strip_citations  # same stripping as turn-based voice
 
 logger = logging.getLogger(__name__)
 
@@ -97,8 +97,13 @@ class LiveSession:
         self._turn: asyncio.Task | None = None
         self._turn_gen = 0
         self._speak_start = 0.0
-        self._speak_crisis = False
         self._speech_ms = 0
+        self._respond_done = False  # current turn: guarded result is in hand
+        self._turn_crisis = False  # current turn: result is a crisis answer (protected)
+        self._interrupting = False
+        self._pending: list[str] = []  # finals waiting to supersede the active turn
+        self._sup: asyncio.Task | None = None
+        self._closing: asyncio.Task | None = None
         self._started = False
         self._closed = asyncio.Event()
 
@@ -118,21 +123,25 @@ class LiveSession:
         self._start()
         it = frames.__aiter__()
         closed_wait = self._spawn(self._closed.wait())
+        nxt: asyncio.Future | None = None
         try:
             while not self._closed.is_set():
                 nxt = asyncio.ensure_future(it.__anext__())
                 await asyncio.wait({nxt, closed_wait}, return_when=asyncio.FIRST_COMPLETED)
                 if not nxt.done():
-                    nxt.cancel()
-                    await asyncio.gather(nxt, return_exceptions=True)
                     break
                 try:
                     frame = nxt.result()
                 except StopAsyncIteration:
                     break
+                nxt = None
                 await self._on_frame(frame)
         finally:
+            if nxt is not None and not nxt.done():
+                nxt.cancel()
             closed_wait.cancel()
+            await asyncio.gather(*(f for f in (nxt, closed_wait) if f is not None),
+                                 return_exceptions=True)
             aclose = getattr(it, "aclose", None)
             if aclose is not None:
                 with contextlib.suppress(Exception):
@@ -142,13 +151,20 @@ class LiveSession:
         self._in_q.put_nowait(None)  # end of audio: let STT flush its final(s)
         if self._stt_task is not None:
             await asyncio.wait({self._stt_task})
-        while self._turn is not None and not self._turn.done() and not self._closed.is_set():
-            await asyncio.wait({self._turn, closed_wait}, return_when=asyncio.FIRST_COMPLETED)
+        while not self._closed.is_set():
+            live = {t for t in (self._sup, self._turn) if t is not None and not t.done()}
+            if not live:
+                break
+            await asyncio.wait(live, timeout=0.1)
 
     async def close(self) -> None:
-        """Idempotent teardown: STT stream, TTS track, inbound, VAD, all tasks."""
-        if self._closed.is_set():
-            return
+        """Idempotent teardown (STT stream, TTS track, inbound, VAD, all tasks). Concurrent
+        callers all wait for the same teardown to finish."""
+        if self._closing is None:
+            self._closing = asyncio.ensure_future(self._do_close())
+        await asyncio.shield(self._closing)
+
+    async def _do_close(self) -> None:
         self._closed.set()
         if self._track is not None:
             with contextlib.suppress(Exception):
@@ -245,7 +261,7 @@ class LiveSession:
         elapsed_ms = (self._clock() - self._speak_start) * 1000
         if elapsed_ms < self._grace_ms:
             return False
-        return not (self._speak_crisis and elapsed_ms < self._crisis_ms)
+        return not (self._turn_crisis and elapsed_ms < self._crisis_ms)
 
     async def _on_frame(self, frame: bytes) -> None:
         self._in_q.put_nowait(frame)
@@ -261,33 +277,73 @@ class LiveSession:
         if self._speech_ms >= self._min_speech_ms and self._barge_allowed():
             await self._interrupt()
 
-    async def _interrupt(self) -> None:
-        """Cancel TTS + in-flight generation; back to LISTENING."""
-        was_speaking = self.state == State.SPEAKING
-        if self._track is not None:
-            self._track.cancel()
-        turn, self._turn = self._turn, None
-        self._turn_gen += 1
-        if turn is not None and not turn.done():
-            turn.cancel()
-            await asyncio.wait({turn})
-        self._speech_ms = 0
-        self._set_state(State.LISTENING)
-        if was_speaking:
-            self._emit(type="barge_in")
+    async def _interrupt(self, to_listening: bool = True) -> None:
+        """Cancel TTS + in-flight generation. One barge-in = one event."""
+        if self._interrupting:
+            return
+        self._interrupting = True
+        try:
+            was_speaking = self.state == State.SPEAKING
+            if self._track is not None:
+                self._track.cancel()
+            turn, self._turn = self._turn, None
+            self._turn_gen += 1
+            if turn is not None and not turn.done():
+                turn.cancel()
+                await asyncio.wait({turn})
+            self._speech_ms = 0
+            self._respond_done = self._turn_crisis = False
+            if to_listening:
+                self._set_state(State.LISTENING)
+            if was_speaking:
+                self._emit(type="barge_in")
+        finally:
+            self._interrupting = False
+
+    @staticmethod
+    def _substantive(text: str) -> bool:
+        return len(text.split()) >= 2 or len(text) >= 6
+
+    def _interruptible(self) -> bool:
+        """May the active turn be superseded now? A turn is never cancelled before its guarded
+        result exists (a crisis result can't be recognised earlier), and a crisis answer is
+        protected from respond() until it has played crisis_min_play_ms."""
+        turn = self._turn
+        if turn is None or turn.done():
+            return True
+        if not self._respond_done:
+            return False
+        if self._turn_crisis:
+            return self.state == State.SPEAKING and self._barge_allowed()
+        return True
 
     async def _on_final(self, text: str) -> None:
         turn = self._turn
-        if turn is not None and not turn.done():
-            # A crisis answer's mandatory referral window is honored before superseding it.
-            while (self.state == State.SPEAKING and self._speak_crisis and not self._barge_allowed()
-                   and not turn.done() and not self._closed.is_set()):
-                await asyncio.sleep(self._poll)
-            if not turn.done():
-                await self._interrupt()
-        if self._closed.is_set():
+        if turn is None or turn.done():
+            self._start_turn(text)
             return
+        if self.state == State.SPEAKING and not self._turn_crisis:
+            # Same gating as the VAD path: echo/noise transcripts must not self-interrupt.
+            if not self._substantive(text) or not self._barge_allowed():
+                return
+        self._pending.append(text)
+        if self._sup is None or self._sup.done():
+            self._sup = self._spawn(self._supersede())
+
+    async def _supersede(self) -> None:
+        while not self._interruptible():
+            await asyncio.sleep(self._poll)
+        if self._turn is not None and not self._turn.done():
+            await self._interrupt(to_listening=False)  # next turn sets THINKING: no flicker
+        if self._pending and not self._closed.is_set():
+            text, self._pending = " ".join(self._pending), []
+            self._start_turn(text)
+        elif self.state != State.LISTENING:
+            self._set_state(State.LISTENING)
+
+    def _start_turn(self, text: str) -> None:
         self._turn_gen += 1
+        self._respond_done = self._turn_crisis = False
         self._turn = self._spawn(self._run_turn(text, self._turn_gen))
 
     # ------------------------------------------------------------- a turn
@@ -305,11 +361,14 @@ class LiveSession:
             self._finish(gen)
             return
         self.conversation_id = result.conversation_id
+        # Mark protection BEFORE synth so a new final can't cancel a crisis referral.
+        self._turn_crisis = bool(result.safety_flags.get("crisis"))
+        self._respond_done = True
         self._emit(type="answer", text=result.answer, language=result.language,
                    conversation_id=str(result.conversation_id))
         self._emit(type="citations", citations=result.citations)
         self._emit(type="safety_flags", safety_flags=result.safety_flags)
-        spoken = _CITE.sub("", result.answer).strip()
+        spoken = strip_citations(result.answer)
         if not spoken:
             self._finish(gen)
             return
@@ -322,7 +381,6 @@ class LiveSession:
             self._emit(type="error", code="tts_failed")
             self._finish(gen)
             return
-        self._speak_crisis = bool(result.safety_flags.get("crisis"))
         self._speak_start = self._clock()
         self._speech_ms = 0
         self._set_state(State.SPEAKING)

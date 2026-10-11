@@ -22,6 +22,11 @@ logger = logging.getLogger(__name__)
 _CITE = re.compile(r"\s*\[S\d+\]")
 
 
+def strip_citations(text: str) -> str:
+    """Remove [S#] citation markers for speech (the written answer keeps them)."""
+    return _CITE.sub("", text).strip()
+
+
 class EmptyTranscript(ValueError):
     """Speech-to-text produced no usable text."""
 
@@ -58,7 +63,7 @@ class VoiceService:
         result = await self.chat.respond(user, transcript.text, conversation_id,
                                          language or reply_language or transcript.language, mode="voice")
         # Citation markers are stripped for speech only; result.answer keeps them.
-        spoken = _CITE.sub("", result.answer).strip()
+        spoken = strip_citations(result.answer)
         try:
             speech = await self.speak(spoken, result.language, voice)
         except Exception as exc:  # noqa: BLE001 - the guarded text must reach the client regardless

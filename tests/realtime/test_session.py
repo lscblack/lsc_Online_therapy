@@ -270,7 +270,102 @@ async def test_barge_in_cancels_inflight_tts_and_generation(session, user):
     await h.finish()
 
 
-async def test_barge_in_cancels_generation_task(session, user, monkeypatch):
+async def test_new_final_during_thinking_waits_for_guarded_result(session, user, monkeypatch):
+    h = Harness(session, user, FakeLLM(["Hello there friend."]))
+    gate = asyncio.Event()
+    calls = []
+    orig = h.live._chat.respond
+
+    async def slow(user_, text, *a, **k):
+        calls.append(text)
+        if len(calls) == 1:
+            await gate.wait()
+        return await orig(user_, text, *a, **k)
+
+    monkeypatch.setattr(h.live._chat, "respond", slow)
+    await h.start()
+    await h.say("first question")
+    await until(lambda: h.live.state == State.THINKING)
+    await h.say("second question")
+    await asyncio.sleep(0.05)
+    assert calls == ["first question"] and not h.live._turn.done()  # not cancelled mid-guard
+    gate.set()
+    await until(lambda: calls == ["first question", "second question"])
+    await until(lambda: h.track.played)
+    await h.finish()
+
+
+async def test_second_final_during_crisis_synth_does_not_drop_referral(session, user):
+    h = Harness(session, user, FakeLLM(["Fine again."]))
+    gate = asyncio.Event()
+
+    class SlowTTS(FakeTTS):
+        async def synthesize(self, text, language, voice):
+            await gate.wait()
+            return await super().synthesize(text, language, voice)
+
+    h.live._tts = SlowTTS()
+    await h.start()
+    await h.say("I want to kill myself")
+    await until(lambda: "safety_flags" in h.types())  # respond() returned; synth pending
+    first = h.live._turn
+    await h.say("please help me now")  # back-to-back final
+    await asyncio.sleep(0.05)
+    assert not first.done() and h.track.cancels == 0
+    gate.set()
+    await until(lambda: h.track.played)
+    assert t("crisis_self_harm", "en") in h.track.played[0].decode()
+    await asyncio.sleep(0.05)
+    assert h.track.cancels == 0  # still protected while the referral plays
+    h.clock.now += 3.5
+    await until(lambda: len(h.track.played) == 2)
+    assert "barge_in" in h.types()
+    await h.finish()
+
+
+async def test_noncrisis_final_during_speaking_is_gated(session, user):
+    h = Harness(session, user, FakeLLM(["Hello there friend."]), barge_in_grace_ms=500)
+    await h.start()
+    await _speaking(h)
+    await h.say("a real interruption")  # within grace: treated as echo/noise
+    await asyncio.sleep(0.05)
+    assert h.track.cancels == 0 and h.live.state == State.SPEAKING
+    h.clock.now += 1.0
+    await h.say("uh")  # not substantive
+    await asyncio.sleep(0.05)
+    assert h.track.cancels == 0
+    await h.say("a real interruption")
+    await until(lambda: len(h.track.played) == 2)
+    assert h.types().count("barge_in") == 1
+    await h.finish()
+
+
+async def test_supersede_thinking_has_no_listening_flicker(session, user):
+    h = Harness(session, user, FakeLLM(["Hello there friend."]))
+    await h.start()
+    await _speaking(h)
+    h.clock.now += 1.0
+    await h.say("something new entirely")
+    await until(lambda: len(h.track.played) == 2)
+    states = [e["state"] for e in h.events if e["type"] == "state"]
+    i = states.index("speaking")
+    assert states[i : i + 3] == ["speaking", "thinking", "speaking"]
+    await h.finish()
+
+
+async def test_single_barge_in_event_when_vad_and_final_race(session, user):
+    h = Harness(session, user, FakeLLM(["Hello there friend."]))
+    await h.start()
+    await _speaking(h)
+    await h.say("a real interruption")
+    for _ in range(3):
+        await h.frames.put(SPEECH)
+    await until(lambda: len(h.track.played) == 2)
+    assert h.types().count("barge_in") == 1
+    await h.finish()
+
+
+async def test_close_during_thinking(session, user, monkeypatch):
     h = Harness(session, user, FakeLLM(["x"]))
     started = asyncio.Event()
     cancelled = []
@@ -287,8 +382,37 @@ async def test_barge_in_cancels_generation_task(session, user, monkeypatch):
     await h.start()
     await h.say("question")
     await started.wait()
-    await h.say("actually, different question")  # new final while thinking supersedes
-    await until(lambda: len(cancelled) >= 1)
+    turn = h.live._turn
+    await asyncio.gather(h.live.close(), h.live.close())  # concurrent closers
+    assert cancelled and turn.done() and h.track.played == []
+    await h._collect
+    await asyncio.wait_for(h.feed_task, 1)
+
+
+async def test_cancelled_feed_leaks_nothing(session, user):
+    before = asyncio.all_tasks()
+    h = Harness(session, user, FakeLLM(["x"]))
+    await h.start()
+    await asyncio.sleep(0.02)  # feed parked in asyncio.wait on the frame source
+    h.feed_task.cancel()
+    await asyncio.gather(h.feed_task, return_exceptions=True)
+    await h.live.close()
+    await h._collect
+    leaked = [x for x in asyncio.all_tasks() - before if not x.done() and x is not asyncio.current_task()]
+    assert leaked == []
+
+
+async def test_natural_end_of_input_completes_turn(session, user):
+    h = Harness(session, user, FakeLLM(["Hello there friend."]))
+    await h.start()
+    await h.say("hello friend")
+    await h.stt.q.put(None)  # STT ends once input ends
+    await h.frames.put(None)  # input stream ends naturally
+    async def stop_playing():
+        await until(lambda: h.track.played)
+        h.track.playing = False
+    await asyncio.gather(asyncio.wait_for(h.feed_task, 3), stop_playing())
+    assert len(h.track.played) == 1
     await h.finish()
 
 
