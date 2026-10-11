@@ -85,14 +85,17 @@ async def test_tts_track_cancel_stops_output_promptly():
     await settle()
     assert t.is_playing
     assert (await t.recv()).pcm == pcm(5)
+    feeder = t._feeder
+    assert feeder is not None and not feeder.done()
     t.cancel()
+    await settle()
+    assert feeder.cancelled()
     assert not t.is_playing
     for _ in range(3):
         assert (await t.recv()).pcm == bytes(FRAME48)
     gate.set()
     await settle()
     assert (await t.recv()).pcm == bytes(FRAME48)
-    assert t._feeder is None or t._feeder.done()
     assert not t.is_playing
 
 
@@ -109,6 +112,90 @@ async def test_tts_track_cancel_then_play_again():
     assert (await t.recv()).pcm == pcm(9)
     assert (await t.recv()).pcm == bytes(FRAME48)
     assert not t.is_playing
+
+
+async def test_cancel_drops_queued_second_utterance():
+    t = make_track()
+    t.play(pcm(1, 3))
+    t.play(pcm(2, 3))
+    await settle()
+    await t.recv()
+    t.cancel()
+    await settle()
+    outs = [(await t.recv()).pcm for _ in range(8)]
+    assert all(o == bytes(FRAME48) for o in outs)
+    assert not t.is_playing
+
+
+async def test_cancel_during_encoded_decode_then_play_new():
+    import threading
+
+    release = threading.Event()
+    calls = []
+
+    def decoder(data: bytes) -> bytes:
+        calls.append(data)
+        if data == b"slow":
+            release.wait(2)
+            return pcm(4, 3)
+        return pcm(6, 1)
+
+    t = TtsTrack(frame_factory=lambda p, pts, r: FakeOut(p, pts, r), pace=False, decoder=decoder)
+    t.play(b"slow")
+    await asyncio.sleep(0.02)  # decode running in executor
+    t.cancel()
+    assert not t.is_playing
+    assert (await t.recv()).pcm == bytes(FRAME48)
+    t.play(b"fast")
+    await asyncio.sleep(0.02)
+    release.set()
+    await asyncio.sleep(0.02)
+    assert (await t.recv()).pcm == pcm(6)
+    assert (await t.recv()).pcm == bytes(FRAME48)  # stale slow decode never played
+    assert not t.is_playing
+
+
+async def test_pts_continuous_across_cancel_replay():
+    t = make_track()
+    t.play(pcm(1, 5))
+    await settle()
+    outs = [await t.recv(), await t.recv()]
+    t.cancel()
+    outs.append(await t.recv())
+    t.play(pcm(2, 2))
+    await settle()
+    outs += [await t.recv() for _ in range(3)]
+    assert [o.pts for o in outs] == [960 * i for i in range(len(outs))]
+
+
+async def test_failing_producer_does_not_wedge_track():
+    t = make_track()
+
+    async def bad():
+        yield pcm(1, 1)
+        raise RuntimeError("boom")
+
+    t.play(bad())
+    t.play(pcm(8, 1))
+    await settle()
+    got = [(await t.recv()).pcm for _ in range(2)]
+    assert got == [pcm(1), pcm(8)]
+    assert not t.is_playing
+    t.play(pcm(3, 1))
+    await settle()
+    assert (await t.recv()).pcm == pcm(3)
+    assert not t.is_playing
+
+
+async def test_odd_byte_decoder_output_stays_aligned():
+    t = TtsTrack(
+        frame_factory=lambda p, pts, r: FakeOut(p, pts, r),
+        pace=False,
+        decoder=lambda d: pcm(1, 1) + b"\x01",
+    )
+    t.play(b"x")
+    await asyncio.sleep(0.02)
+    assert len(t._buf) == FRAME48
 
 
 async def test_tts_track_decodes_encoded_bytes_via_injected_decoder():

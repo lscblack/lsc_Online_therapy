@@ -14,10 +14,14 @@ queueing / cancel logic is unit-testable with fakes. The real decode path lives 
 import array
 import asyncio
 import io
+import logging
 import time
 from collections import deque
 from collections.abc import AsyncIterator, Callable
+from fractions import Fraction
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 IN_RATE = 16000
 OUT_RATE = 48000
@@ -170,7 +174,7 @@ def _av_frame(pcm: bytes, pts: int, rate: int) -> Any:
     frame.planes[0].update(pcm)
     frame.sample_rate = rate
     frame.pts = pts
-    frame.time_base = __import__("fractions").Fraction(1, rate)
+    frame.time_base = Fraction(1, rate)
     return frame
 
 
@@ -179,7 +183,8 @@ def _base_track_cls() -> type:
         from aiortc import MediaStreamTrack
 
         return MediaStreamTrack
-    except Exception:  # aiortc missing/unusable: app must still boot
+    except Exception as e:  # aiortc missing/unusable: app must still boot
+        logger.warning("aiortc unusable (%s); TtsTrack uses a stub base class", type(e).__name__)
         class _Stub:
             kind = "audio"
 
@@ -197,7 +202,8 @@ class TtsTrack(_base_track_cls()):  # type: ignore[misc]
 
     play(chunks)  enqueue an utterance (bytes or async iterator of bytes). Utterances
                   play back-to-back in call order.
-    cancel()      synchronously flush all queued/in-flight audio and stop the feeder
+    cancel()      synchronously (it does NOT await the feeder; a loop closed right after
+                  may warn "Task was destroyed but pending") flush all queued/in-flight audio and stop the feeder
                   task; next recv() is silence. Safe to call anytime; track stays usable.
     is_playing    True while audio is queued, being fed, or buffered.
     recv()        always returns exactly one 20 ms mono s16 48 kHz frame (silence when idle),
@@ -257,17 +263,25 @@ class TtsTrack(_base_track_cls()):  # type: ignore[misc]
     async def _feed(self) -> None:
         while self._pending:
             src = self._pending.popleft()
-            if self._encoded:
-                data = src if isinstance(src, bytes) else b"".join([c async for c in src])
-                pcm = await asyncio.get_running_loop().run_in_executor(None, self._decoder, data)
-                self._buf += pcm
+            try:
+                await self._feed_one(src)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:  # bad producer/decoder: drop utterance, keep queue alive
+                logger.warning("TTS utterance failed (%s); skipping", type(e).__name__)
+
+    async def _feed_one(self, src: Any) -> None:
+        if self._encoded:
+            data = src if isinstance(src, bytes) else b"".join([c async for c in src])
+            pcm = await asyncio.get_running_loop().run_in_executor(None, self._decoder, data)
+            self._buf += pcm[: len(pcm) & ~1]
+        else:
+            rs = Pcm16Resampler(self._input_rate, OUT_RATE)
+            if isinstance(src, bytes):
+                self._buf += rs.process(src)
             else:
-                rs = Pcm16Resampler(self._input_rate, OUT_RATE)
-                if isinstance(src, bytes):
-                    self._buf += rs.process(src)
-                else:
-                    async for c in src:
-                        self._buf += rs.process(c)
+                async for c in src:
+                    self._buf += rs.process(c)
 
     # -- aiortc pull
     async def recv(self) -> Any:
