@@ -6,13 +6,16 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_user
+from app.api.lang import accept_language
 from app.core.db import get_session
+from app.core.ratelimit import rate_limit
 from app.models import User
 from app.schemas.voice import SpeakRequest, TranscribeResponse, VoiceChatResponse
 from app.services.chat import ConversationNotFound
 from app.services.voice import EmptyTranscript, VoiceService
 
-router = APIRouter(prefix="/v1/voice", tags=["voice"])
+router = APIRouter(prefix="/v1/voice", tags=["voice"],
+                   dependencies=[Depends(rate_limit("voice", "rate_limit_chat_per_min", True))])
 MAX_AUDIO_BYTES = 10 * 1024 * 1024
 # STT only uses the filename extension to infer format; if the upload has no filename we derive
 # one from its content-type.
@@ -39,28 +42,30 @@ async def _read_audio(file: UploadFile) -> bytes:
 
 @router.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe(audio: UploadFile = File(...), language: str | None = Form(None),
-                     user: User = Depends(current_user),
+                     user: User = Depends(current_user), hdr_lang: str | None = Depends(accept_language),
                      session: AsyncSession = Depends(get_session)) -> TranscribeResponse:
     data = await _read_audio(audio)
-    tr = await VoiceService(session).transcribe(data, language, _filename(audio))
+    tr = await VoiceService(session).transcribe(data, language or hdr_lang, _filename(audio))
     return TranscribeResponse(text=tr.text, language=tr.language)
 
 
 @router.post("/speak")
-async def speak(body: SpeakRequest, user: User = Depends(current_user),
+async def speak(body: SpeakRequest, user: User = Depends(current_user), hdr_lang: str | None = Depends(accept_language),
                 session: AsyncSession = Depends(get_session)) -> Response:
-    audio = await VoiceService(session).speak(body.text, body.language, body.voice)
+    audio = await VoiceService(session).speak(body.text,
+                                         body.language if "language" in body.model_fields_set
+                                         else (hdr_lang or body.language), body.voice)
     return Response(content=audio, media_type="audio/mpeg")
 
 
 @router.post("/chat", response_model=VoiceChatResponse)
 async def voice_chat(audio: UploadFile = File(...), language: str | None = Form(None),
                      voice: str | None = Form(None), conversation_id: uuid.UUID | None = Form(None),
-                     user: User = Depends(current_user),
+                     user: User = Depends(current_user), hdr_lang: str | None = Depends(accept_language),
                      session: AsyncSession = Depends(get_session)) -> VoiceChatResponse:
     data = await _read_audio(audio)
     try:
-        r = await VoiceService(session).voice_chat(user, data, language, voice, conversation_id,
+        r = await VoiceService(session).voice_chat(user, data, language or hdr_lang, voice, conversation_id,
                                                    _filename(audio))
     except ConversationNotFound as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversation not found") from e

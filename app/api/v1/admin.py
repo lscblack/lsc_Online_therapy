@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_role
 from app.core.db import get_session
+from app.core.ratelimit import rate_limit
 from app.models import User
 from app.models.document import DocStatus, ReviewStatus
 from app.schemas.admin import AdminLoginRequest, AuditOut, DocumentOut, ReviewIn, UserOut
@@ -23,7 +24,8 @@ def _404(what: str) -> HTTPException:
     return HTTPException(status.HTTP_404_NOT_FOUND, f"{what} not found")
 
 
-@router.post("/login", response_model=TokenPair)
+@router.post("/login", response_model=TokenPair,
+             dependencies=[Depends(rate_limit("admin_login", "rate_limit_auth_per_min"))])
 async def login(body: AdminLoginRequest,
                 session: AsyncSession = Depends(get_session)) -> TokenPair:
     try:

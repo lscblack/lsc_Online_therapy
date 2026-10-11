@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_user, user_from_token
 from app.core.db import get_session
+from app.core.ratelimit import rate_limit
 from app.core.security import REFRESH
 from app.models import User
 from app.schemas.identity import (
@@ -41,7 +42,8 @@ async def upgrade(body: UpgradeRequest, user: User = Depends(current_user),
     return UpgradeResponse(is_upgraded=user.is_upgraded)
 
 
-@router.post("/recover", response_model=AnonSession)
+@router.post("/recover", response_model=AnonSession,
+             dependencies=[Depends(rate_limit("recover", "rate_limit_auth_per_min"))])
 async def recover(body: RecoverRequest,
                   session: AsyncSession = Depends(get_session)) -> AnonSession:
     try:
