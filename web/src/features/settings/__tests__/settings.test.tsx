@@ -9,7 +9,8 @@ const get = vi.fn();
 const put = vi.fn(async (_d: unknown) => ({}));
 const wipe = vi.fn(async () => undefined);
 vi.mock("../../../api/profile", () => ({ profile: { get: () => get(), put: (d: unknown) => put(d), wipe: () => wipe() } }));
-const auth = { ensureAnon: async () => {}, isAdmin: false };
+const ensureAnon = vi.fn(async () => {});
+const auth = { ensureAnon, isAdmin: false };
 vi.mock("../../../auth/useAuth", () => ({ useAuth: () => auth }));
 
 import Settings from "../Settings";
@@ -27,6 +28,7 @@ function setup() {
 }
 beforeEach(() => {
   get.mockReset().mockResolvedValue(PROFILE); put.mockClear(); wipe.mockClear();
+  ensureAnon.mockClear();
   localStorage.setItem(ONBOARDED_KEY, "1");
 });
 
@@ -61,6 +63,25 @@ describe("Settings", () => {
     expect(wipe).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem(ONBOARDED_KEY)).toBeNull();
     expect(screen.getByLabelText(en.obNickname)).toHaveValue("");
+  });
+
+  it("wipe clears the old user identity (not admin) and mints a fresh one", async () => {
+    localStorage.setItem("ubuzima.tokens.user", JSON.stringify({ access_token: "a", refresh_token: "r", token_type: "bearer" }));
+    localStorage.setItem("ubuzima.anon_id", "old-anon");
+    localStorage.setItem("ubuzima.tokens.admin", JSON.stringify({ access_token: "x", refresh_token: "y", token_type: "bearer" }));
+    setup();
+    await screen.findByLabelText(en.obNickname);
+    ensureAnon.mockClear();
+    ensureAnon.mockImplementationOnce(async () => {
+      expect(localStorage.getItem("ubuzima.tokens.user")).toBeNull();
+      expect(localStorage.getItem("ubuzima.anon_id")).toBeNull();
+    });
+    fireEvent.click(screen.getByRole("button", { name: en.setWipe }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: en.setWipe }));
+    await screen.findByText(en.setWipeDone);
+    expect(wipe).toHaveBeenCalledTimes(1);
+    expect(ensureAnon).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem("ubuzima.tokens.admin")).not.toBeNull();
   });
 
   it("cancelling the wipe dialog does nothing", async () => {

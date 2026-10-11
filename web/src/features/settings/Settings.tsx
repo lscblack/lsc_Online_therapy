@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { profile } from "../../api/profile";
 import type { AgeBand, Profile, ProfileUpdate } from "../../api/types";
 import { useAuth } from "../../auth/useAuth";
+import { clearAnonId, clearTokens } from "../../auth/tokenStore";
 import LangToggle from "../../components/LangToggle";
 import Modal from "../../components/Modal";
 import ThemeToggle from "../../components/ThemeToggle";
@@ -86,6 +87,10 @@ export default function Settings() {
     try {
       await profile.wipe();
       resetOnboarding();
+      // Shared-device safety: drop the old anonymous identity entirely (admin session untouched)
+      // and mint a fresh one so the app stays usable with no link to the wiped user.
+      clearTokens("user"); clearAnonId();
+      try { await ensureAnon(); } catch { /* offline: re-minted on next use */ }
       if (!alive.current) return;
       setBase(EMPTY); setForm(EMPTY);
       setMsg({ kind: "ok", text: t("setWipeDone") });

@@ -27,3 +27,6 @@ export function getAnonId(): string | null {
 export function setAnonId(id: string): void {
   try { localStorage.setItem(ANON_KEY, id); } catch { /* storage unavailable */ }
 }
+export function clearAnonId(): void {
+  try { localStorage.removeItem(ANON_KEY); } catch { /* storage unavailable */ }
+}
