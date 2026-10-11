@@ -106,6 +106,13 @@ class ChatController extends Notifier<ChatState> {
         language: ref.read(languageProvider));
 
     void finish(ChatResponse r) {
+      final hasText = r.answer.isNotEmpty ||
+          (state.messages.where((m) => m.id == aid).firstOrNull?.text.isNotEmpty ?? false);
+      if (!hasText) {
+        // An empty final reply is not a clean answer.
+        _update(aid, (m) => m.copyWith(status: MessageStatus.error));
+        return;
+      }
       _update(
           aid,
           (m) => m.copyWith(
@@ -132,12 +139,9 @@ class ChatController extends Notifier<ChatState> {
         }
       }
       if (!finished) {
-        // Stream closed without a final event: keep what arrived, if anything.
-        if (gotToken) {
-          _update(aid, (m) => m.copyWith(status: MessageStatus.done));
-        } else {
-          _update(aid, (m) => m.copyWith(status: MessageStatus.error));
-        }
+        // Connection closed before `done`: the reply (and its safety flags) may
+        // be truncated, so never present it as complete. Partial text is kept.
+        _update(aid, (m) => m.copyWith(status: MessageStatus.error));
       }
     } on ApiError catch (e) {
       if (!gotToken && !e.isOffline && const {404, 405, 501}.contains(e.status)) {

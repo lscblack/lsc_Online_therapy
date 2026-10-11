@@ -50,21 +50,29 @@ class AssistantResponseView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(tProvider);
     final cs = Theme.of(context).colorScheme;
     final done = !streaming && !failed;
     return Semantics(
       container: true,
       // Announce once the reply is complete, not per token.
-      liveRegion: done,
-      label: t('chat.buddy'),
+      liveRegion: !streaming,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (failed)
-            ChatErrorCard(offline: offline, onRetry: onRetry)
-          else ...[
+          if (failed) ...[
+            // Keep any partial text visible above the error card.
+            if (text.isNotEmpty) ...[
+              AssistantBubble(
+                  child: SelectableText(text,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyLarge
+                          ?.copyWith(color: cs.onSurface))),
+              const SizedBox(height: 8),
+            ],
+            ChatErrorCard(offline: offline, onRetry: onRetry),
+          ] else ...[
             if (text.isNotEmpty || streaming)
               AssistantBubble(
                   child: text.isEmpty

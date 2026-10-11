@@ -191,6 +191,58 @@ void main() {
     expect(t.takeException(), isNull);
   });
 
+  testWidgets('stream closing without done is an interrupted error, partial kept',
+      (t) async {
+    await pumpChat(t, FakeChat((_) async* {
+      yield const ChatToken('I am so sor');
+    }));
+    await say(t, 'q');
+    await t.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const Key('chat-error')), findsOneWidget);
+    expect(find.byKey(const Key('retry-button')), findsOneWidget);
+    expect(find.text('I am so sor'), findsOneWidget);
+  });
+
+  testWidgets('mid-stream ApiError keeps partial text above error card', (t) async {
+    await pumpChat(t, FakeChat((_) async* {
+      yield const ChatToken('partial words');
+      throw const ApiError('stream', 'boom', 500);
+    }));
+    await say(t, 'q');
+    await t.pump(const Duration(milliseconds: 400));
+    final partial = t.getTopLeft(find.text('partial words')).dy;
+    final err = t.getTopLeft(find.byKey(const Key('chat-error'))).dy;
+    expect(partial, lessThan(err));
+  });
+
+  testWidgets('done with empty answer and no tokens is an error', (t) async {
+    await pumpChat(t, FakeChat((_) => Stream.value(ChatDone(resp('')))));
+    await say(t, 'q');
+    await t.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const Key('chat-error')), findsOneWidget);
+  });
+
+  testWidgets('composer stays enabled while streaming; only older errors lose retry',
+      (t) async {
+    final c = StreamController<ChatStreamEvent>();
+    var n = 0;
+    await pumpChat(t, FakeChat((_) {
+      if (n++ == 0) return Stream.error(const ApiError('offline', 'x', 0));
+      return c.stream;
+    }));
+    await say(t, 'one');
+    await t.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const Key('retry-button')), findsOneWidget);
+    // second turn: type-ahead field remains enabled while streaming
+    await say(t, 'two');
+    expect(t.widget<TextField>(find.byKey(const Key('composer-field'))).enabled, isNot(false));
+    expect(t.widget<IconButton>(find.byKey(const Key('send-button'))).onPressed, isNull);
+    // the old failure no longer offers retry
+    expect(find.byKey(const Key('retry-button')), findsNothing);
+    await c.close();
+    await t.pump(const Duration(milliseconds: 400));
+  });
+
   testWidgets('falls back to send when streaming unavailable (404)', (t) async {
     final fake = FakeChat((_) => Stream.error(const ApiError('not_found', 'x', 404)));
     final f2 = _SendFallback(fake);

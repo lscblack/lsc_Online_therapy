@@ -62,11 +62,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     itemCount: msgs.length,
                     itemBuilder: (_, i) {
                       final m = msgs[msgs.length - 1 - i];
+                      final isLast = i == 0;
                       return _MessageRow(
                         key: ValueKey(m.id),
                         m: m,
-                        onRetry: () =>
-                            ref.read(chatProvider.notifier).retry(m.id),
+                        onRetry: isLast
+                            ? () => ref.read(chatProvider.notifier).retry(m.id)
+                            : null,
                       );
                     },
                   ),
@@ -86,7 +88,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 class _MessageRow extends ConsumerWidget {
   const _MessageRow({super.key, required this.m, required this.onRetry});
   final ChatMessage m;
-  final VoidCallback onRetry;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -184,7 +186,6 @@ class _Composer extends ConsumerWidget {
                 focusNode: focus,
                 minLines: 1,
                 maxLines: 5,
-                enabled: enabled,
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.newline,
                 textCapitalization: TextCapitalization.sentences,
