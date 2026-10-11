@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { admin } from "../api/admin";
 import { identity } from "../api/identity";
-import type { User, UserRole } from "../api/types";
-import { clearTokens, getTokens } from "./tokenStore";
+import type { AnonSession, User, UserRole } from "../api/types";
+import { onAuthExpired } from "../api/client";
+import { clearTokens, getAnonId, getTokens } from "./tokenStore";
 
 export interface AuthState {
   ready: boolean;
@@ -16,6 +17,7 @@ export interface AuthState {
   adminLogout: () => void;
 }
 
+let inflightAnon: Promise<AnonSession> | null = null;
 const Ctx = createContext<AuthState | null>(null);
 const ROLE_KEY = "ubuzima.admin.role";
 
@@ -30,13 +32,14 @@ function writeRole(r: UserRole | null): void {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [anon, setAnon] = useState(() => !!getTokens("user"));
-  const [anonId, setAnonId] = useState<string | null>(null);
+  const [anonId, setAnonId] = useState<string | null>(() => getAnonId());
   const [isAdmin, setIsAdmin] = useState(() => !!getTokens("admin"));
   const [role, setRole] = useState<UserRole | null>(() => (getTokens("admin") ? readRole() : null));
 
   const ensureAnon = useCallback(async () => {
-    if (getTokens("user")) { setAnon(true); return; }
-    const s = await identity.anon();
+    if (getTokens("user")) { setAnon(true); setAnonId(getAnonId()); return; }
+    inflightAnon ??= identity.anon().finally(() => { inflightAnon = null; });
+    const s = await inflightAnon;
     setAnonId(s.anon_id);
     setAnon(true);
   }, []);
@@ -46,6 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ensureAnon().catch(() => { /* offline: surfaced by later calls */ }).finally(() => { if (live) setReady(true); });
     return () => { live = false; };
   }, [ensureAnon]);
+
+  useEffect(() => onAuthExpired((kind) => {
+    if (kind === "admin") { writeRole(null); setIsAdmin(false); setRole(null); return; }
+    setAnon(false);
+    ensureAnon().catch(() => { /* offline: retried on next ensureAnon */ });
+  }), [ensureAnon]);
 
   const adminLogin = useCallback(async (email: string, password: string) => {
     await admin.login(email, password);

@@ -9,7 +9,8 @@ import { parseSSE } from "../sse";
 import { chat } from "../chat";
 import { admin } from "../admin";
 import { identity } from "../identity";
-import { clearTokens, getTokens, setTokens } from "../../auth/tokenStore";
+import { clearTokens, getAnonId, getTokens, setTokens } from "../../auth/tokenStore";
+import { StrictMode } from "react";
 import { AuthProvider, useAuth } from "../../auth/useAuth";
 
 const U = (p: string) => `${API_BASE}${p}`;
@@ -80,6 +81,30 @@ describe("apiFetch", () => {
   });
 });
 
+describe("refresh robustness", () => {
+  const unauth = () => HttpResponse.json({ error: { code: "unauthorized", message: "x" } }, { status: 401 });
+  it("transient refresh failures (offline, 5xx, malformed) keep tokens", async () => {
+    for (const refresh of [() => HttpResponse.error(), () => new HttpResponse("boom", { status: 503 }), () => HttpResponse.json({ foo: 1 })]) {
+      setTokens("user", pair("old"));
+      server.use(http.post(U("/v1/identity/refresh"), refresh), http.get(U("/v1/x"), unauth));
+      const e = await apiFetch("/v1/x").catch((x: unknown) => x);
+      expect(e).toBeInstanceOf(ApiError);
+      expect((e as ApiError).code).not.toBe("auth_expired");
+      expect(getTokens("user")?.access_token).toBe("a-old");
+    }
+  });
+  it("definitive 403 refresh clears tokens", async () => {
+    setTokens("user", pair("old"));
+    server.use(http.post(U("/v1/identity/refresh"), () => HttpResponse.json({ error: { code: "forbidden", message: "x" } }, { status: 403 })), http.get(U("/v1/x"), unauth));
+    await expect(apiFetch("/v1/x")).rejects.toMatchObject({ code: "auth_expired" });
+    expect(getTokens("user")).toBeNull();
+  });
+  it("non-JSON 2xx throws typed ApiError", async () => {
+    server.use(http.get(U("/v1/x"), () => new HttpResponse("<html>", { status: 200 })));
+    await expect(apiFetch("/v1/x")).rejects.toMatchObject({ code: "bad_response" });
+  });
+});
+
 describe("tokenStore", () => {
   it("keeps user and admin pairs separate", () => {
     setTokens("user", pair("u")); setTokens("admin", pair("a"));
@@ -101,6 +126,31 @@ describe("auth", () => {
     expect(result.current.anon).toBe(true);
     expect(getTokens("user")?.access_token).toBe("a-anon");
     expect(getTokens("admin")).toBeNull();
+  });
+
+  it("StrictMode double-mount creates a single anon identity and persists anon_id", async () => {
+    let n = 0;
+    server.use(http.post(U("/v1/identity/anon"), async () => { n++; await new Promise((r) => setTimeout(r, 20)); return HttpResponse.json({ ...pair("s"), anon_id: "sid" }); }));
+    const sw = ({ children }: { children: ReactNode }) => <StrictMode><AuthProvider>{children}</AuthProvider></StrictMode>;
+    const { result } = renderHook(() => useAuth(), { wrapper: sw });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(n).toBe(1);
+    expect(result.current.anonId).toBe("sid");
+    expect(getAnonId()).toBe("sid");
+  });
+
+  it("re-bootstraps anon after a definitive 401 clears the user token", async () => {
+    setTokens("user", pair("old"));
+    server.use(
+      http.post(U("/v1/identity/refresh"), () => HttpResponse.json({}, { status: 401 })),
+      http.get(U("/v1/x"), () => HttpResponse.json({}, { status: 401 })),
+      http.post(U("/v1/identity/anon"), () => HttpResponse.json({ ...pair("fresh"), anon_id: "n2" })),
+    );
+    const { result } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await apiFetch("/v1/x").catch(() => undefined);
+    await waitFor(() => expect(getTokens("user")?.access_token).toBe("a-fresh"));
+    expect(result.current.anon).toBe(true);
   });
 
   it("adminLogin stores admin tokens separately; logout clears only admin", async () => {
@@ -145,6 +195,26 @@ describe("parseSSE / streamSend", () => {
     const out: string[] = [];
     for await (const ev of parseSSE(s)) out.push(`${ev.event}:${ev.data}`);
     expect(out).toEqual(["delta:Mur", "delta:ahoro"]);
+  });
+
+  it("handles CR split across chunks", async () => {
+    const out: string[] = [];
+    for await (const ev of parseSSE(streamOf(["event: delta\r\ndata: a\r", "\n\r", "\n", "data: b\n\n"]))) out.push(ev.data);
+    expect(out).toEqual(["a", "b"]);
+  });
+
+  it("cancels the reader on early exit", async () => {
+    let cancelled = false;
+    const s = new ReadableStream<Uint8Array>({ pull(c) { c.enqueue(new TextEncoder().encode("data: x\n\n")); }, cancel() { cancelled = true; } });
+    for await (const ev of parseSSE(s)) { void ev; break; }
+    expect(cancelled).toBe(true);
+  });
+
+  it("streamSend surfaces an error frame as ApiError and ignores unknown events", async () => {
+    server.use(http.post(U("/v1/chat/stream"), () =>
+      new HttpResponse(streamOf(["event: ping\ndata: 1\n\n", "event: delta\ndata: Hi\n\n", 'event: error\ndata: {"code":"upstream","message":"LLM down"}\n\n']),
+        { headers: { "Content-Type": "text/event-stream" } })));
+    await expect(chat.streamSend({ message: "hi" }, () => undefined)).rejects.toMatchObject({ code: "upstream", message: "LLM down" });
   });
 
   it("streamSend calls onToken per delta and returns assembled message + meta", async () => {

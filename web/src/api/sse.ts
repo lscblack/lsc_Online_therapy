@@ -22,7 +22,10 @@ export async function* parseSSE(stream: ReadableStream<Uint8Array>): AsyncGenera
   try {
     for (;;) {
       const { value, done } = await reader.read();
-      buf += dec.decode(value, { stream: !done }).replace(/\r\n/g, "\n");
+      buf += dec.decode(value, { stream: !done });
+      buf = buf.replace(/\r\n/g, "\n");
+      if (!done && buf.endsWith("\r")) { /* wait: next chunk may start with \n */ }
+      else buf = buf.replace(/\r/g, "\n");
       let idx: number;
       while ((idx = buf.indexOf("\n\n")) !== -1) {
         const ev = parseBlock(buf.slice(0, idx));
@@ -34,6 +37,7 @@ export async function* parseSSE(stream: ReadableStream<Uint8Array>): AsyncGenera
     const last = parseBlock(buf);
     if (last && last.data !== "[DONE]") yield last;
   } finally {
+    await reader.cancel().catch(() => undefined); // early exit: don't leave the connection open
     reader.releaseLock();
   }
 }

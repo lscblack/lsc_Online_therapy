@@ -19,6 +19,15 @@ export const chat = {
     for await (const ev of parseSSE(res.body)) {
       if (ev.event === "done") {
         try { meta = JSON.parse(ev.data) as ChatResponse; } catch { /* ignore malformed meta */ }
+      } else if (ev.event === "error") {
+        let code = "stream_error", msg = ev.data;
+        try {
+          const j = JSON.parse(ev.data) as { code?: unknown; message?: unknown; error?: { code?: unknown; message?: unknown } };
+          const e = j.error ?? j;
+          if (typeof e.code === "string") code = e.code;
+          if (typeof e.message === "string") msg = e.message;
+        } catch { /* plain-text error */ }
+        throw new ApiError(code, msg, 200);
       } else if (ev.event === "delta" || ev.event === "message") {
         message += ev.data;
         onToken(ev.data);

@@ -28,6 +28,20 @@ export interface ApiOptions {
 
 const refreshing: Partial<Record<TokenKind, Promise<boolean>>> = {};
 
+type ExpiredListener = (kind: TokenKind) => void;
+const expiredListeners = new Set<ExpiredListener>();
+/** Subscribe to definitive session expiry (tokens cleared after refresh was rejected). */
+export function onAuthExpired(cb: ExpiredListener): () => void {
+  expiredListeners.add(cb);
+  return () => { expiredListeners.delete(cb); };
+}
+
+function isTokenPair(v: unknown): v is TokenPair {
+  const t = v as Partial<TokenPair> | null;
+  return !!t && typeof t.access_token === "string" && t.access_token !== "" &&
+    typeof t.refresh_token === "string" && t.refresh_token !== "";
+}
+
 async function readError(res: Response): Promise<ApiError> {
   try {
     const j = (await res.json()) as Partial<ErrorEnvelope>;
@@ -52,18 +66,25 @@ async function rawFetch(path: string, o: ApiOptions, token: string | null): Prom
   }
 }
 
-function refreshTokens(kind: TokenKind): Promise<boolean> {
+/**
+ * Shared single-flight refresh. Resolves true when new tokens were stored, false when the
+ * server DEFINITIVELY rejected the refresh token (400/401/403). Throws ApiError (offline, 5xx,
+ * malformed body) on transient failures, leaving stored tokens untouched.
+ */
+export function refreshTokens(kind: TokenKind): Promise<boolean> {
   const inflight = refreshing[kind];
   if (inflight) return inflight;
   const p = (async () => {
     const cur = getTokens(kind);
     if (!cur) return false;
-    try {
-      const res = await rawFetch("/v1/identity/refresh", { method: "POST", body: { refresh_token: cur.refresh_token } }, null);
-      if (!res.ok) return false;
-      setTokens(kind, (await res.json()) as TokenPair);
-      return true;
-    } catch { return false; }
+    const res = await rawFetch("/v1/identity/refresh", { method: "POST", body: { refresh_token: cur.refresh_token } }, null);
+    if (res.status === 400 || res.status === 401 || res.status === 403) return false;
+    if (!res.ok) throw await readError(res);
+    let data: unknown;
+    try { data = await res.json(); } catch { data = null; }
+    if (!isTokenPair(data)) throw new ApiError("bad_response", "Malformed refresh response", res.status);
+    setTokens(kind, data);
+    return true;
   })().finally(() => { delete refreshing[kind]; });
   refreshing[kind] = p;
   return p;
@@ -78,6 +99,7 @@ export async function apiFetchRaw(path: string, o: ApiOptions = {}): Promise<Res
       res = await rawFetch(path, o, getTokens(mode)?.access_token ?? null);
     } else {
       clearTokens(mode);
+      expiredListeners.forEach((cb) => cb(mode));
       throw new ApiError("auth_expired", "Session expired", 401);
     }
   }
@@ -89,5 +111,7 @@ export async function apiFetch<T>(path: string, o: ApiOptions = {}): Promise<T> 
   const res = await apiFetchRaw(path, o);
   if (res.status === 204) return undefined as T;
   const text = await res.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  if (!text) return undefined as T;
+  try { return JSON.parse(text) as T; }
+  catch { throw new ApiError("bad_response", "Server returned a non-JSON response", res.status); }
 }

@@ -19,3 +19,11 @@ export function setTokens(kind: TokenKind, t: TokenPair): void {
 export function clearTokens(kind: TokenKind): void {
   try { localStorage.removeItem(KEYS[kind]); } catch { /* storage unavailable */ }
 }
+
+const ANON_KEY = "ubuzima.anon_id";
+export function getAnonId(): string | null {
+  try { return localStorage.getItem(ANON_KEY); } catch { return null; }
+}
+export function setAnonId(id: string): void {
+  try { localStorage.setItem(ANON_KEY, id); } catch { /* storage unavailable */ }
+}
