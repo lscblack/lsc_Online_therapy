@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/i18n/i18n.dart';
 import '../../core/theme.dart';
+import '../chat/chat_screen.dart';
 
 /// Bottom-nav scaffold with Chat and Settings destinations.
 class AppShell extends ConsumerStatefulWidget {
@@ -45,7 +46,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
-            child: _index == 0 ? const _ChatPlaceholder() : const SettingsPage(),
+            child: _index == 0 ? const ChatScreen() : const SettingsPage(),
           ),
         ),
       ),
@@ -62,31 +63,6 @@ class _AppShellState extends ConsumerState<AppShell> {
               selectedIcon: const Icon(Icons.settings),
               label: t('nav.settings')),
         ],
-      ),
-    );
-  }
-}
-
-class _ChatPlaceholder extends ConsumerWidget {
-  const _ChatPlaceholder();
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(tProvider);
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(t('greeting'), style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Text(t('placeholder.chat')),
-            ],
-          ),
-        ),
       ),
     );
   }

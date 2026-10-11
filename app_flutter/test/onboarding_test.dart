@@ -91,7 +91,8 @@ void main() {
     await t.enterText(find.byKey(const Key('ob-sensitive')), 'I have asthma');
     await tapKey(t, 'ob-finish');
 
-    final paths = h.adapter.requests.map((r) => '${r.method} ${r.path}').toList();
+    // Chat welcome fetches GET /v1/profile once the shell shows; ignore it.
+    final paths = h.adapter.requests.where((r) => r.method != 'GET').map((r) => '${r.method} ${r.path}').toList();
     expect(paths.first, 'POST /v1/identity/anon');
     expect(paths.last, 'PUT /v1/profile');
     expect(h.putBody, {
@@ -167,7 +168,7 @@ void main() {
     await t.pumpWidget(h.app);
     await t.pumpAndSettle();
     expect(find.byKey(const Key('ob-nick')), findsNothing);
-    expect(h.adapter.requests, isEmpty);
+    expect(h.adapter.requests.where((r) => r.method != 'GET'), isEmpty);
     await h.container.read(onboardedProvider.notifier).reset();
     await t.pumpAndSettle();
     expect(find.byKey(const Key('ob-nick')), findsOneWidget);
