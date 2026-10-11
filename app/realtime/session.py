@@ -319,6 +319,11 @@ class LiveSession:
 
     async def _on_final(self, text: str) -> None:
         turn = self._turn
+        if self._sup is not None and not self._sup.done():
+            # A supersede is in flight (possibly mid-cancel, when self._turn is None):
+            # it alone starts the next turn, so there is never more than one.
+            self._pending.append(text)
+            return
         if turn is None or turn.done():
             self._start_turn(text)
             return
@@ -342,6 +347,10 @@ class LiveSession:
             self._set_state(State.LISTENING)
 
     def _start_turn(self, text: str) -> None:
+        old = self._turn
+        if old is not None and not old.done():  # safety net: exactly one live turn
+            self._track.cancel()
+            old.cancel()
         self._turn_gen += 1
         self._respond_done = self._turn_crisis = False
         self._turn = self._spawn(self._run_turn(text, self._turn_gen))
@@ -359,6 +368,8 @@ class LiveSession:
             logger.error("respond failed (%s)", type(e).__name__)
             self._emit(type="error", code="respond_failed")
             self._finish(gen)
+            return
+        if gen != self._turn_gen:  # superseded: nothing from this turn may leak out
             return
         self.conversation_id = result.conversation_id
         # Mark protection BEFORE synth so a new final can't cancel a crisis referral.
@@ -380,6 +391,8 @@ class LiveSession:
             logger.error("TTS failed (%s)", type(e).__name__)
             self._emit(type="error", code="tts_failed")
             self._finish(gen)
+            return
+        if gen != self._turn_gen:
             return
         self._speak_start = self._clock()
         self._speech_ms = 0

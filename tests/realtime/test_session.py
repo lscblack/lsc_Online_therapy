@@ -365,6 +365,48 @@ async def test_single_barge_in_event_when_vad_and_final_race(session, user):
     await h.finish()
 
 
+async def test_final_during_supersede_cancel_window_starts_one_turn(session, user, monkeypatch):
+    h = Harness(session, user, FakeLLM(["Hello there friend."]))
+    gate = asyncio.Event()
+    in_cancel = asyncio.Event()
+
+    class SlowCancelTTS(FakeTTS):
+        async def synthesize(self, text, language, voice):
+            try:
+                await gate.wait()
+            except asyncio.CancelledError:
+                in_cancel.set()
+                await asyncio.sleep(0.1)  # slow teardown widens the race window
+                raise
+            return await super().synthesize(text, language, voice)
+
+    h.live._tts = SlowCancelTTS()
+    calls = []
+    orig = h.live._chat.respond
+
+    async def spy(user_, text, *a, **k):
+        calls.append(text)
+        return await orig(user_, text, *a, **k)
+
+    monkeypatch.setattr(h.live._chat, "respond", spy)
+    await h.start()
+    await h.say("first question")
+    await until(lambda: "safety_flags" in h.types())  # first turn parked in synth
+    first_gate = h.live._turn
+    await h.say("second question")
+    await in_cancel.wait()  # supersede is awaiting the cancelled turn; self._turn is None
+    await h.say("third question")  # arrives inside the window
+    gate.set()  # later turns synthesize instantly
+    await until(lambda: h.track.played)
+    await asyncio.sleep(0.2)
+    live = [x for x in h.live._tasks if x.get_coro().__name__ == "_run_turn" and not x.done()]
+    assert len(live) <= 1 and first_gate.done()
+    assert calls == ["first question", "second question third question"]
+    assert len(h.track.played) == 1  # no duplicate audio
+    assert h.types().count("answer") == 2  # first answer + the merged one only
+    await h.finish()
+
+
 async def test_close_during_thinking(session, user, monkeypatch):
     h = Harness(session, user, FakeLLM(["x"]))
     started = asyncio.Event()
