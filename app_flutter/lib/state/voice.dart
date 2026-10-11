@@ -15,12 +15,24 @@ final voiceRecorderProvider =
 final voicePlayerProvider =
     Provider<VoicePlayer>((ref) => JustAudioVoicePlayer());
 
-enum VoicePhase { idle, recording, processing, denied, unavailable, error }
+enum VoicePhase { idle, starting, recording, processing, denied, unavailable, error }
 
 /// One voice exchange. Transcript/answer are never logged.
 class VoiceTurn {
-  const VoiceTurn(this.response);
+  VoiceTurn(this.response) : audio = _decode(response);
   final VoiceResponse response;
+
+  /// Decoded reply audio, or null when TTS is unavailable/empty/invalid.
+  final Uint8List? audio;
+
+  static Uint8List? _decode(VoiceResponse r) {
+    if (!r.ttsAvailable || r.audioBase64.isEmpty) return null;
+    try {
+      return base64Decode(r.audioBase64);
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 class VoiceState {
@@ -60,14 +72,19 @@ class VoiceController extends AutoDisposeNotifier<VoiceState> {
   bool _disposed = false;
   late final VoiceRecorder _rec = ref.read(voiceRecorderProvider);
   late final VoicePlayer _player = ref.read(voicePlayerProvider);
+  StreamSubscription<bool>? _playSub;
 
   @override
   VoiceState build() {
     _rec; // bind now so dispose can release them
-    _player;
+    // Reflect real playback (ended / stopped / failed) in state.
+    _playSub = _player.playingStream.listen((p) {
+      if (!_disposed && state.playing != p) state = state.copyWith(playing: p);
+    });
     ref.onDispose(() {
       _disposed = true;
       _ticker?.cancel();
+      _playSub?.cancel();
       // Release the mic and playback even if mid-recording.
       unawaited(_release());
     });
@@ -93,7 +110,7 @@ class VoiceController extends AutoDisposeNotifier<VoiceState> {
     switch (state.phase) {
       case VoicePhase.recording:
         await stopAndSend();
-      case VoicePhase.processing:
+      case VoicePhase.processing || VoicePhase.starting:
         return;
       default:
         await start();
@@ -101,6 +118,13 @@ class VoiceController extends AutoDisposeNotifier<VoiceState> {
   }
 
   Future<void> start() async {
+    // Re-entrancy guard: ignore taps while starting/recording/processing.
+    if (state.phase == VoicePhase.starting ||
+        state.phase == VoicePhase.recording ||
+        state.phase == VoicePhase.processing) {
+      return;
+    }
+    state = state.copyWith(phase: VoicePhase.starting);
     // Never record over a playing reply.
     await _stopPlayback();
     try {
@@ -115,7 +139,9 @@ class VoiceController extends AutoDisposeNotifier<VoiceState> {
     }
     if (_disposed) return;
     state = state.copyWith(phase: VoicePhase.recording, elapsed: Duration.zero);
+    _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_disposed) return;
       state = state.copyWith(elapsed: state.elapsed + const Duration(seconds: 1));
     });
   }
@@ -140,32 +166,23 @@ class VoiceController extends AutoDisposeNotifier<VoiceState> {
       }
       state = state.copyWith(
           phase: VoicePhase.idle, turns: [...state.turns, VoiceTurn(r)]);
-      await _autoplay(r);
+      await _autoplay(state.turns.last);
     } catch (_) {
       if (!_disposed) state = state.copyWith(phase: VoicePhase.error);
     }
   }
 
-  Uint8List? _decode(VoiceResponse r) {
-    if (!r.ttsAvailable || r.audioBase64.isEmpty) return null;
-    try {
-      return base64Decode(r.audioBase64);
-    } catch (_) {
-      return null;
-    }
-  }
+  bool canPlay(VoiceTurn turn) => turn.audio != null;
 
-  bool canPlay(VoiceResponse r) => _decode(r) != null;
+  Future<void> _autoplay(VoiceTurn turn) => play(turn);
 
-  Future<void> _autoplay(VoiceResponse r) => play(r);
-
-  Future<void> play(VoiceResponse r) async {
-    final bytes = _decode(r);
+  Future<void> play(VoiceTurn turn) async {
+    final bytes = turn.audio;
     if (bytes == null) return;
     try {
       await _player.stop();
       await _player.setMuted(state.muted);
-      await _player.play(bytes, r.audioMime);
+      await _player.play(bytes, turn.response.audioMime);
       if (!_disposed) state = state.copyWith(playing: true);
     } catch (_) {
       // Playback is a bonus; the text answer is already shown.
@@ -183,6 +200,7 @@ class VoiceController extends AutoDisposeNotifier<VoiceState> {
   }
 
   Future<void> toggleMute() async {
+    if (_disposed) return;
     final m = !state.muted;
     state = state.copyWith(muted: m);
     try {

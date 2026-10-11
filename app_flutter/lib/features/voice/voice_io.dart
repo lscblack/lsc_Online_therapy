@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Directory, File;
 import 'dart:typed_data';
 
@@ -28,6 +29,9 @@ abstract class VoiceRecorder {
 
 /// Reply playback seam.
 abstract class VoicePlayer {
+  /// true while a reply is audibly playing; false when it ends, is stopped,
+  /// or fails to start (e.g. web autoplay rejection).
+  Stream<bool> get playingStream;
   Future<void> play(Uint8List bytes, String mime);
   Future<void> stop();
   Future<void> setMuted(bool muted);
@@ -90,15 +94,32 @@ class RecordVoiceRecorder implements VoiceRecorder {
 /// `just_audio`-backed player; plays from an in-memory data URI.
 class JustAudioVoicePlayer implements VoicePlayer {
   AudioPlayer? _p;
-  AudioPlayer get _pl => _p ??= AudioPlayer();
+  StreamSubscription<PlayerState>? _sub;
+  final _out = StreamController<bool>.broadcast();
+
+  AudioPlayer get _pl {
+    final existing = _p;
+    if (existing != null) return existing;
+    final p = _p = AudioPlayer();
+    _sub = p.playerStateStream.listen((st) {
+      _out.add(st.playing && st.processingState != ProcessingState.completed);
+    });
+    return p;
+  }
+
+  @override
+  Stream<bool> get playingStream => _out.stream;
 
   @override
   Future<void> play(Uint8List bytes, String mime) async {
     final p = _pl;
     await p.setAudioSource(AudioSource.uri(Uri.dataFromBytes(bytes,
         mimeType: mime.isEmpty ? 'audio/mpeg' : mime)));
-    // play() completes when playback ends; do not block the UI on it.
-    p.play();
+    // play() completes when playback ends; do not block on it, but never let
+    // a rejection (e.g. web autoplay policy) escape as an unhandled error.
+    unawaited(p.play().catchError((Object _) {
+      if (!_out.isClosed) _out.add(false);
+    }));
   }
 
   @override
@@ -111,6 +132,8 @@ class JustAudioVoicePlayer implements VoicePlayer {
   Future<void> dispose() async {
     final p = _p;
     _p = null;
+    await _sub?.cancel();
     await p?.dispose();
+    await _out.close();
   }
 }

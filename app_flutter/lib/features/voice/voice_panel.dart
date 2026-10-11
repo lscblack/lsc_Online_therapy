@@ -28,7 +28,8 @@ class VoicePanel extends ConsumerWidget {
     final c = ref.read(voiceControllerProvider.notifier);
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    final last = s.last;
+    // After a failed turn, don't leave the previous answer reading as its result.
+    final last = s.phase == VoicePhase.error ? null : s.last;
     final status = switch (s.phase) {
       VoicePhase.recording => t('voice.recording'),
       VoicePhase.processing => t('voice.processing'),
@@ -59,22 +60,24 @@ class VoicePanel extends ConsumerWidget {
                 _Notice(key: const Key('voice-error'), text: t('voice.error')),
               if (last != null) ...[
                 const SizedBox(height: 8),
-                Align(
-                    alignment: Alignment.centerRight,
-                    child: Semantics(
-                        label: t('voice.you'),
-                        child: UserBubble(text: last.response.transcript))),
-                const SizedBox(height: 10),
+                if (last.response.transcript.trim().isNotEmpty) ...[
+                  Align(
+                      alignment: Alignment.centerRight,
+                      child: Semantics(
+                          label: t('voice.you'),
+                          child: UserBubble(text: last.response.transcript))),
+                  const SizedBox(height: 10),
+                ],
                 // Same crisis / referral / citation treatment as chat.
                 Align(
                     alignment: Alignment.centerLeft,
                     child: AssistantResponseView.fromVoice(last.response)),
                 const SizedBox(height: 10),
-                if (c.canPlay(last.response))
+                if (c.canPlay(last))
                   _PlaybackRow(
                     playing: s.playing,
                     muted: s.muted,
-                    onPlay: () => c.play(last.response),
+                    onPlay: () => c.play(last),
                     onStop: c.stopPlayback,
                     onMute: c.toggleMute,
                   )
