@@ -1,7 +1,8 @@
 import { apiFetch } from "./client";
 import { setTokens } from "../auth/tokenStore";
 import type {
-  AuditEntry, Document, ModelConfig, ReviewStatus, TestModelResult, TokenPair, User, UserRole,
+  AuditEntry, Document, ModelConfig, ProviderModels, ReviewStatus, TestModelResult,
+  TokenPair, User, UserRole,
 } from "./types";
 
 const A = { auth: "admin" } as const;
@@ -28,8 +29,10 @@ export const admin = {
     apiFetch<User>(`/v1/admin/users/${encodeURIComponent(id)}/disable`, { ...A, method: "POST" }),
   listAudit: () => apiFetch<AuditEntry[]>("/v1/admin/audit", A),
   getModels: () => apiFetch<ModelConfig>("/v1/admin/models", A),
-  setModel: (model: string) =>
-    apiFetch<ModelConfig>("/v1/admin/models", { ...A, method: "PUT", body: { model } }),
-  testModel: (model: string, prompt?: string) =>
-    apiFetch<TestModelResult>("/v1/admin/models/test", { ...A, method: "POST", body: { model, ...(prompt ? { prompt } : {}) } }),
+  providerModels: (provider: string) =>
+    apiFetch<ProviderModels>(`/v1/admin/models/${encodeURIComponent(provider)}`, A),
+  setModel: (provider: string, model: string) =>
+    apiFetch<ModelConfig>("/v1/admin/models", { ...A, method: "PUT", body: { provider, model } }),
+  testModel: (provider: string, model: string, prompt?: string) =>
+    apiFetch<TestModelResult>("/v1/admin/models/test", { ...A, method: "POST", body: { provider, model, ...(prompt ? { prompt } : {}) } }),
 };

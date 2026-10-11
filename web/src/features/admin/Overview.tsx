@@ -34,7 +34,7 @@ export default function Overview({ onGo }: { onGo: (s: Section) => void }) {
     { k: "docs" as Section, value: docs?.length ?? "—", label: t("ovDocuments"), sub: `${indexed} ${t("ovIndexed")}` },
     { k: "docs" as Section, value: pending, label: t("ovPending"), sub: t("ovNeedsReview") },
     { k: "users" as Section, value: users?.length ?? "—", label: t("ovUsers"), sub: t("ovRegistered") },
-    { k: "models" as Section, value: models?.active ?? "—", label: t("ovActiveModel"), sub: models?.is_override ? t("mdlOverride") : t("mdlDefault"), wide: true },
+    { k: "models" as Section, value: models ? `${models.active_provider} · ${models.active_model}` : "—", label: t("ovActiveModel"), sub: models?.is_override ? t("mdlOverride") : t("mdlDefault"), wide: true },
   ];
 
   return (

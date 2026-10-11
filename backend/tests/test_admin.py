@@ -260,9 +260,10 @@ async def test_models_get_defaults_and_rbac(client, admin, reviewer, plain):
     r = await client.get("/v1/admin/models", headers=_h(admin))
     assert r.status_code == 200
     body = r.json()
-    assert body["active"] == body["default"]          # no override yet
-    assert body["is_override"] is False
-    assert any(m["id"] == "inclusionai/ling-3.1-flash" for m in body["catalog"])
+    assert body["is_override"] is False                # no override yet
+    assert body["active_provider"] and body["active_model"]
+    names = {p["name"] for p in body["providers"]}
+    assert {"ollama", "requesty", "openrouter", "cohere"} <= names
     # model management is admin-only
     assert (await client.get("/v1/admin/models", headers=_h(reviewer))).status_code == 403
     assert (await client.get("/v1/admin/models", headers=_h(plain))).status_code == 403
@@ -271,20 +272,24 @@ async def test_models_get_defaults_and_rbac(client, admin, reviewer, plain):
 
 async def test_set_model_persists_and_audits(client, admin, session):
     r = await client.put("/v1/admin/models", headers=_h(admin),
-                         json={"model": "openrouter/free"})
+                         json={"provider": "requesty", "model": "google/gemma-4-31b-it"})
     assert r.status_code == 200
-    assert r.json()["active"] == "openrouter/free" and r.json()["is_override"] is True
+    assert r.json()["active_provider"] == "requesty"
+    assert r.json()["active_model"] == "google/gemma-4-31b-it"
+    assert r.json()["is_override"] is True
     # reflected on a fresh GET
     g = await client.get("/v1/admin/models", headers=_h(admin))
-    assert g.json()["active"] == "openrouter/free"
+    assert g.json()["active_provider"] == "requesty"
     assert len(await _audit(session, "model.set", admin)) == 1
+    # unknown provider is rejected
+    bad = await client.put("/v1/admin/models", headers=_h(admin), json={"provider": "nope", "model": "x"})
+    assert bad.status_code == 400
 
 
 async def test_set_model_is_admin_only(client, reviewer, plain):
-    assert (await client.put("/v1/admin/models", headers=_h(reviewer),
-                             json={"model": "x"})).status_code == 403
-    assert (await client.put("/v1/admin/models", headers=_h(plain),
-                             json={"model": "x"})).status_code == 403
+    body = {"provider": "requesty", "model": "x"}
+    assert (await client.put("/v1/admin/models", headers=_h(reviewer), json=body)).status_code == 403
+    assert (await client.put("/v1/admin/models", headers=_h(plain), json=body)).status_code == 403
 
 
 async def test_test_model_reports_ok_and_errors(client, admin, monkeypatch):
@@ -296,7 +301,7 @@ async def test_test_model_reports_ok_and_errors(client, admin, monkeypatch):
             for part in self._t.split():
                 yield part + " "
 
-    def fake_get_llm(settings=None, model=None):
+    def fake_get_llm(settings=None, model=None, provider=None):
         if model == "good/model":
             return _FakeLLM("condoms and the pill are options")
         raise RuntimeError("no endpoints for this model")
@@ -304,11 +309,18 @@ async def test_test_model_reports_ok_and_errors(client, admin, monkeypatch):
     monkeypatch.setattr(adminmod, "get_llm", fake_get_llm)
 
     ok = await client.post("/v1/admin/models/test", headers=_h(admin),
-                           json={"model": "good/model", "prompt": "hi"})
+                           json={"provider": "requesty", "model": "good/model", "prompt": "hi"})
     assert ok.status_code == 200 and ok.json()["ok"] is True
     assert "condoms" in ok.json()["sample"] and ok.json()["latency_ms"] >= 0
 
     bad = await client.post("/v1/admin/models/test", headers=_h(admin),
-                            json={"model": "bad/model", "prompt": "hi"})
+                            json={"provider": "requesty", "model": "bad/model", "prompt": "hi"})
     assert bad.status_code == 200 and bad.json()["ok"] is False
     assert "no endpoints" in bad.json()["error"]
+
+
+async def test_provider_models_lists_curated(client, admin):
+    r = await client.get("/v1/admin/models/ollama", headers=_h(admin))
+    assert r.status_code == 200 and r.json()["provider"] == "ollama"
+    assert isinstance(r.json()["models"], list)
+    assert (await client.get("/v1/admin/models/nope", headers=_h(admin))).status_code == 404

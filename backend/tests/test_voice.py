@@ -103,7 +103,7 @@ async def test_voice_chat_endpoint(client, session, monkeypatch):
     import app.services.voice as voice_mod
     await _doc(session, "FP Guide", [T_FP])
     monkeypatch.setattr(voice_mod, "get_stt", lambda: FakeSTT(text=T_FP, language="en"))
-    monkeypatch.setattr(chat_mod, "get_llm", lambda: FakeLLM(["Condoms work well [S1]."]))
+    monkeypatch.setattr(chat_mod, "get_llm", lambda *a, **k: FakeLLM(["Condoms work well [S1]."]))
     h = await _headers(client)
     r = await client.post("/v1/voice/chat", headers=h, data={"language": "en"},
                           files={"audio": ("a.webm", b"zzz", "audio/webm")})
@@ -146,7 +146,7 @@ async def test_tts_failure_still_returns_crisis_text(client, monkeypatch):
     import app.services.chat as chat_mod
     import app.services.voice as voice_mod
     monkeypatch.setattr(voice_mod, "get_stt", lambda: FakeSTT(text="I want to kill myself", language="en"))
-    monkeypatch.setattr(chat_mod, "get_llm", lambda: FakeLLM(["MODEL ANSWER"]))
+    monkeypatch.setattr(chat_mod, "get_llm", lambda *a, **k: FakeLLM(["MODEL ANSWER"]))
     h = await _headers(client)
     # Kinyarwanda hits the not-implemented Digital Umuganda TTS stub
     monkeypatch.setattr(get_settings(), "tts_provider", "digitalumuganda")
@@ -231,7 +231,7 @@ async def test_accept_language_never_becomes_stt_hint(client, monkeypatch):
 async def test_transcribe_and_speak_work_without_llm(client, monkeypatch):
     import app.services.chat as chat_mod
 
-    def boom():
+    def boom(*a, **k):
         raise ValueError("OPENROUTER_API_KEY must be set to use this provider")
 
     monkeypatch.setattr(chat_mod, "get_llm", boom)

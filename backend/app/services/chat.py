@@ -20,8 +20,8 @@ from app.providers.factory import get_llm
 from app.rag.prompt import assemble
 from app.rag.retrieval import RetrievalResult, retrieve
 from app.repositories.conversations import ConversationRepository
+from app.providers.registry import ACTIVE_MODEL_KEY, ACTIVE_PROVIDER_KEY
 from app.repositories.settings import SettingsRepository
-from app.services.models_catalog import LLM_SETTING_KEY
 from app.safety import guard
 from app.safety.referrals import lookup
 from app.safety.triage import Category, Triage, classify, referral_category_for
@@ -87,23 +87,31 @@ class ChatService:
     def __init__(self, session: AsyncSession, llm=None) -> None:
         self.session = session
         self._llm = llm  # resolved lazily: voice transcribe/speak never need a working LLM
-        self._model_override: str | None = None  # admin-selected active model (DB), if any
+        self._provider: str | None = None  # admin-selected provider (DB) or env default
+        self._model: str | None = None      # admin-selected model (DB) or env default
         self.repo = ConversationRepository(session)
 
     @property
     def llm(self):
         if self._llm is None:
-            self._llm = get_llm(model=self._model_override) if self._model_override else get_llm()
+            self._llm = (get_llm(model=self._model, provider=self._provider)
+                         if self._provider else get_llm())
         return self._llm
 
     async def _resolve_active_model(self) -> None:
-        """Load the admin-selected model (if any) before the LLM is built. No-op when an LLM
-        was injected (tests) or already built."""
-        if self._llm is None and self._model_override is None:
+        """Load the admin-selected provider/model (falling back to the env defaults) before the
+        LLM is built. No-op when an LLM was injected (tests) or already built."""
+        if self._llm is None and self._provider is None:
+            from app.core.config import get_settings
+            s = get_settings()
             try:
-                self._model_override = await SettingsRepository(self.session).get(LLM_SETTING_KEY)
-            except Exception:  # noqa: BLE001 - fall back to the env default if the lookup fails
+                repo = SettingsRepository(self.session)
+                self._provider = await repo.get(ACTIVE_PROVIDER_KEY) or s.default_llm_provider
+                self._model = await repo.get(ACTIVE_MODEL_KEY) or s.default_llm_model
+            except Exception:  # noqa: BLE001 - fall back to env defaults if the lookup fails
                 logger.debug("active-model lookup failed; using env default", exc_info=True)
+                self._provider = s.default_llm_provider
+                self._model = s.default_llm_model
 
     async def _generate(self, messages: list[dict]) -> str:
         return "".join([c async for c in self.llm.stream_chat(messages)]).strip()

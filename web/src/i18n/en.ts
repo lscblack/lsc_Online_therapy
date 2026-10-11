@@ -179,8 +179,9 @@ const en = {
   mdlTesting: "Testing...",
   mdlOk: "Works",
   mdlFailed: "Failed",
-  mdlCustomPlaceholder: "Enter any OpenRouter model id, e.g. anthropic/claude-sonnet-5.5",
+  mdlCustomPlaceholder: "Enter any model id for this provider, then Test",
   mdlCustomNote: "Custom model id. Test it before activating.",
+  mdlNoKey: "no key",
 } as const;
 
 export type Dict = Record<keyof typeof en, string>;

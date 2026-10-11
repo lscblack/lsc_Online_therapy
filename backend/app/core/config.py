@@ -18,7 +18,18 @@ class Settings(BaseSettings):
     # with no cap it assumes the model's max context (e.g. 65536) and rejects the request as
     # unaffordable even when a normal-length answer is well within balance. Per-call opts override.
     llm_max_tokens: int = 1024
+    # Additional OpenAI-compatible LLM providers (optional; enabled only when the key is set).
+    requesty_api_key: str = ""
+    nvidia_api_key: str = ""
+    cohere_api_key: str = ""
+    aionlabs_api_key: str = ""
+    hf_api_key: str = ""
+    ollama_base_url: str = "http://127.0.0.1:11434/v1"
+    # Default active LLM when no admin override is stored (provider name from the registry + model id).
+    default_llm_provider: str = "requesty"
+    default_llm_model: str = "google/gemma-4-31b-it"
     # Provider selectors: llm/stt/tts = fake|openrouter|digitalumuganda(stt/tts); embedding = fake|e5
+    # llm_provider "fake" short-circuits to the fake LLM (tests); any other value uses real providers.
     llm_provider: str = "openrouter"
     embedding_provider: str = "e5"
     stt_provider: str = "openrouter"

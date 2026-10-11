@@ -11,12 +11,18 @@ from app.models import User
 from app.models.document import DocStatus, Document, ReviewStatus
 from app.providers.base import EmbeddingProvider
 from app.providers.factory import get_llm
+from app.providers.registry import (
+    ACTIVE_MODEL_KEY,
+    ACTIVE_PROVIDER_KEY,
+    PROVIDERS,
+    list_models,
+    provider_summaries,
+)
 from app.repositories.audit import AuditRepository
 from app.repositories.documents import DocumentRepository
 from app.repositories.settings import SettingsRepository
 from app.repositories.users import UserRepository
 from app.services.ingestion import IngestionService
-from app.services.models_catalog import CATALOG, LLM_SETTING_KEY
 
 
 class AdminService:
@@ -104,46 +110,61 @@ class AdminService:
     async def list_audit(self, limit: int = 100, offset: int = 0):
         return await self.audit.list(limit, offset)
 
-    # --- LLM model management -------------------------------------------------
+    # --- LLM provider/model management ---------------------------------------
 
     async def get_model_config(self) -> dict:
-        """The active chat/voice LLM model: the DB override if set, else the env default."""
+        """The active chat/voice provider+model (DB override, else the env default) plus the
+        list of available providers and their curated models."""
         s = get_settings()
-        override = await self.settings_repo.get(LLM_SETTING_KEY)
-        active = override or s.llm_model
-        return {"active": active, "default": s.llm_model, "is_override": override is not None,
-                "provider": s.llm_provider, "catalog": CATALOG}
+        prov = await self.settings_repo.get(ACTIVE_PROVIDER_KEY)
+        model = await self.settings_repo.get(ACTIVE_MODEL_KEY)
+        return {
+            "active_provider": prov or s.default_llm_provider,
+            "active_model": model or s.default_llm_model,
+            "is_override": prov is not None,
+            "providers": provider_summaries(s),
+        }
 
-    async def set_llm_model(self, actor: User, model: str) -> dict:
-        model = model.strip()
+    async def list_provider_models(self, provider: str) -> dict:
+        """Live model ids for one provider (falls back to the curated list)."""
+        if provider not in PROVIDERS:
+            raise ValueError(f"Unknown provider: {provider}")
+        return {"provider": provider, "models": await list_models(get_settings(), provider)}
+
+    async def set_active_model(self, actor: User, provider: str, model: str) -> dict:
+        provider, model = provider.strip(), model.strip()
+        if provider not in PROVIDERS:
+            raise ValueError(f"Unknown provider: {provider}")
         if not model:
             raise ValueError("model is required")
-        await self.settings_repo.set(LLM_SETTING_KEY, model, updated_by=actor.id)
-        await self.audit.record(actor.id, "model.set", LLM_SETTING_KEY, {"model": model})
+        await self.settings_repo.set(ACTIVE_PROVIDER_KEY, provider, updated_by=actor.id)
+        await self.settings_repo.set(ACTIVE_MODEL_KEY, model, updated_by=actor.id)
+        await self.audit.record(actor.id, "model.set", f"{provider}:{model}",
+                                {"provider": provider, "model": model})
         await self.session.commit()
         return await self.get_model_config()
 
-    async def test_model(self, model: str, prompt: str) -> dict:
-        """Probe a model with a short prompt so the admin can compare before activating.
+    async def test_model(self, provider: str, model: str, prompt: str) -> dict:
+        """Probe a provider+model with a short prompt so the admin can compare before activating.
         Never raises: provider/credit/availability failures come back as ok=False + error."""
-        model = model.strip()
+        provider, model = provider.strip(), model.strip()
         t0 = time.monotonic()
         try:
-            llm = get_llm(model=model)
+            llm = get_llm(model=model, provider=provider)
             messages = [{"role": "user", "content": prompt}]
             chunks = []
-            async with asyncio.timeout(45):
-                async for c in llm.stream_chat(messages, max_tokens=160):
+            async with asyncio.timeout(60):
+                async for c in llm.stream_chat(messages, max_tokens=400):
                     chunks.append(c)
             text = "".join(chunks).strip()
             dt = int((time.monotonic() - t0) * 1000)
             if not text:
-                return {"model": model, "ok": False, "latency_ms": dt, "sample": "",
-                        "error": "Model returned an empty response."}
-            return {"model": model, "ok": True, "latency_ms": dt, "sample": text[:400],
-                    "error": None}
+                return {"provider": provider, "model": model, "ok": False, "latency_ms": dt,
+                        "sample": "", "error": "Model returned an empty response."}
+            return {"provider": provider, "model": model, "ok": True, "latency_ms": dt,
+                    "sample": text[:400], "error": None}
         except Exception as exc:  # noqa: BLE001 - a probe reports failure, never crashes the request
             dt = int((time.monotonic() - t0) * 1000)
             detail = getattr(getattr(exc, "response", None), "text", None) or str(exc)
-            return {"model": model, "ok": False, "latency_ms": dt, "sample": "",
-                    "error": f"{type(exc).__name__}: {detail[:300]}"}
+            return {"provider": provider, "model": model, "ok": False, "latency_ms": dt,
+                    "sample": "", "error": f"{type(exc).__name__}: {detail[:300]}"}

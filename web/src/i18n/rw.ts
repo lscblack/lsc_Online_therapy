@@ -181,7 +181,8 @@ const rw: Dict = {
   mdlTesting: "Kugerageza...",
   mdlOk: "Irakora",
   mdlFailed: "Yanze",
-  mdlCustomPlaceholder: "Andika id ya moderi iyo ari yo yose ya OpenRouter, urugero anthropic/claude-sonnet-5.5",
+  mdlCustomPlaceholder: "Andika id ya moderi y'uyu musemuzi, hanyuma uyigerageze",
   mdlCustomNote: "Id ya moderi yihariye. Yigerageze mbere yo kuyikoresha.",
+  mdlNoKey: "nta urufunguzo",
 };
 export default rw;

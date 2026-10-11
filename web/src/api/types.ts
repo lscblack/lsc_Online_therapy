@@ -44,12 +44,16 @@ export interface AuditEntry {
   metadata: unknown; at: string;
 }
 
-export interface ModelInfo { id: string; label: string; tier: string; note: string }
-export interface ModelConfig {
-  active: string; default: string; is_override: boolean; provider: string; catalog: ModelInfo[];
+export interface ProviderInfo {
+  name: string; label: string; tier: string; note: string;
+  enabled: boolean; local: boolean; models: string[];
 }
+export interface ModelConfig {
+  active_provider: string; active_model: string; is_override: boolean; providers: ProviderInfo[];
+}
+export interface ProviderModels { provider: string; models: string[] }
 export interface TestModelResult {
-  model: string; ok: boolean; latency_ms: number; sample: string; error: string | null;
+  provider: string; model: string; ok: boolean; latency_ms: number; sample: string; error: string | null;
 }
 
 export interface ErrorEnvelope { error: { code: string; message: string; details?: unknown } }

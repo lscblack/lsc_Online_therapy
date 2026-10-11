@@ -7,7 +7,7 @@ import { ApiError } from "../../../api/client";
 const api = vi.hoisted(() => ({
   login: vi.fn(), listDocuments: vi.fn(), uploadDocument: vi.fn(), reviewDocument: vi.fn(),
   reindexDocument: vi.fn(), me: vi.fn(), deleteDocument: vi.fn(), listUsers: vi.fn(), disableUser: vi.fn(), listAudit: vi.fn(),
-  getModels: vi.fn(), setModel: vi.fn(), testModel: vi.fn(),
+  getModels: vi.fn(), providerModels: vi.fn(), setModel: vi.fn(), testModel: vi.fn(),
 }));
 vi.mock("../../../api/admin", () => ({ admin: api }));
 vi.mock("../../../api/identity", () => ({ identity: { anon: vi.fn(async () => ({ anon_id: "a" })) } }));
@@ -48,10 +48,13 @@ beforeEach(() => {
   api.listDocuments.mockResolvedValue([doc()]);
   api.listAudit.mockResolvedValue([]);
   api.getModels.mockResolvedValue({
-    active: "inclusionai/ling-3.1-flash", default: "inclusionai/ling-3.1-flash",
-    is_override: false, provider: "openrouter",
-    catalog: [{ id: "inclusionai/ling-3.1-flash", label: "Ling 3.1 Flash", tier: "free", note: "n" }],
+    active_provider: "requesty", active_model: "google/gemma-4-31b-it", is_override: false,
+    providers: [
+      { name: "requesty", label: "Requesty", tier: "free", note: "n", enabled: true, local: false, models: ["google/gemma-4-31b-it"] },
+      { name: "ollama", label: "Ollama (local)", tier: "local", note: "n", enabled: true, local: true, models: ["llama3:latest"] },
+    ],
   });
+  api.providerModels.mockResolvedValue({ provider: "requesty", models: ["google/gemma-4-31b-it"] });
 });
 
 describe("Admin panel", () => {

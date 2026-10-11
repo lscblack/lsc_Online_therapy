@@ -17,12 +17,24 @@ def _unknown(kind: str, name: str):
     return ProviderConfigError(f"Unknown {kind} provider: {name!r}")
 
 
-def get_llm(settings: Settings | None = None, model: str | None = None) -> LLMProvider:
-    """`model` overrides settings.llm_model (e.g. an admin-selected active model)."""
+def get_llm(settings: Settings | None = None, model: str | None = None,
+            provider: str | None = None) -> LLMProvider:
+    """Build the chat LLM.
+
+    - `llm_provider == "fake"` short-circuits to the fake LLM (tests).
+    - A `provider` naming an entry in the multi-provider registry (requesty, ollama, cohere,
+      nvidia, aionlabs, huggingface, openrouter) builds a generic OpenAI-compatible client.
+    - With no `provider`, the legacy OpenRouter path is used (backwards compatible).
+    """
     s = settings or get_settings()
     if s.llm_provider == "fake":
         from app.providers.fakes import FakeLLM
         return FakeLLM()
+    if provider:
+        from app.providers.registry import PROVIDERS, build_llm
+        if provider in PROVIDERS:
+            return build_llm(s, provider, model or s.default_llm_model, max_tokens=s.llm_max_tokens)
+        raise _unknown("llm", provider)
     if s.llm_provider == "openrouter":
         _require(s, OPENROUTER_API_KEY="openrouter_api_key", LLM_MODEL="llm_model")
         from app.providers.llm_openrouter import OpenRouterLLM

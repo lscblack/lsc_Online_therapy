@@ -110,14 +110,14 @@ async def test_stream_yields_sse_chunks(client, session, monkeypatch):
     await _doc(session, "FP Guide", [T_FP])
     anon = (await client.post("/v1/identity/anon")).json()
     h = {"Authorization": f"Bearer {anon['access_token']}"}
-    monkeypatch.setattr(chat_mod, "get_llm", lambda: FakeLLM(["Condoms work well [S1]."]))
+    monkeypatch.setattr(chat_mod, "get_llm", lambda *a, **k: FakeLLM(["Condoms work well [S1]."]))
     r = await client.post("/v1/chat/stream", json={"message": T_FP}, headers=h)
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream")
     assert "event: delta" in r.text and "event: done" in r.text
     done = r.text.split("event: done\ndata: ")[1].split("\n\n")[0]
     assert json.loads(done)["citations"][0]["id"] == "S1"
     # crisis: only the crisis/referral copy is streamed, never the model output
-    monkeypatch.setattr(chat_mod, "get_llm", lambda: FakeLLM(["UNGUARDED MODEL OUTPUT"]))
+    monkeypatch.setattr(chat_mod, "get_llm", lambda *a, **k: FakeLLM(["UNGUARDED MODEL OUTPUT"]))
     r = await client.post("/v1/chat/stream", json={"message": "I want to kill myself"}, headers=h)
     assert "UNGUARDED" not in r.text and "your life matters" in r.text
     # sensitive + uncited: replaced before any chunk is emitted
@@ -129,7 +129,7 @@ async def test_stream_yields_sse_chunks(client, session, monkeypatch):
 
 async def test_chat_json_endpoint_auth_and_ownership(client, session, monkeypatch):
     import app.services.chat as chat_mod
-    monkeypatch.setattr(chat_mod, "get_llm", lambda: FakeLLM(["x"]))
+    monkeypatch.setattr(chat_mod, "get_llm", lambda *a, **k: FakeLLM(["x"]))
     assert (await client.post("/v1/chat", json={"message": "hi"})).status_code == 401
     a = (await client.post("/v1/identity/anon")).json()
     b = (await client.post("/v1/identity/anon")).json()
@@ -260,7 +260,7 @@ async def test_llm_resolved_lazily_and_respond_works(session, user, monkeypatch)
 
     monkeypatch.setattr(chat_mod, "get_llm", boom)
     svc = ChatService(session)  # no LLM resolution at construction
-    monkeypatch.setattr(chat_mod, "get_llm", lambda: FakeLLM())
+    monkeypatch.setattr(chat_mod, "get_llm", lambda *a, **k: FakeLLM())
     r = await svc.respond(user, "I want to kill myself", language="en")
     assert r.safety_flags["crisis"] is True
 
@@ -269,7 +269,7 @@ async def test_provider_config_error_is_503_envelope(client, monkeypatch):
     import app.services.chat as chat_mod
     from app.providers.factory import ProviderConfigError
 
-    def boom():
+    def boom(*a, **k):
         raise ProviderConfigError("OPENROUTER_API_KEY must be set to use this provider")
 
     monkeypatch.setattr(chat_mod, "get_llm", boom)

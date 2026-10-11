@@ -14,6 +14,7 @@ from app.schemas.admin import (
     AuditOut,
     DocumentOut,
     ModelConfigOut,
+    ProviderModelsOut,
     ReviewIn,
     SetModelIn,
     TestModelIn,
@@ -138,11 +139,20 @@ async def get_models(user: User = Depends(_admin),
     return ModelConfigOut(**await AdminService(session).get_model_config())
 
 
+@router.get("/models/{provider}", response_model=ProviderModelsOut)
+async def provider_models(provider: str, user: User = Depends(_admin),
+                          session: AsyncSession = Depends(get_session)) -> ProviderModelsOut:
+    try:
+        return ProviderModelsOut(**await AdminService(session).list_provider_models(provider))
+    except ValueError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e)) from e
+
+
 @router.put("/models", response_model=ModelConfigOut)
 async def set_model(body: SetModelIn, user: User = Depends(_admin),
                     session: AsyncSession = Depends(get_session)) -> ModelConfigOut:
     try:
-        cfg = await AdminService(session).set_llm_model(user, body.model)
+        cfg = await AdminService(session).set_active_model(user, body.provider, body.model)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
     return ModelConfigOut(**cfg)
@@ -151,7 +161,7 @@ async def set_model(body: SetModelIn, user: User = Depends(_admin),
 @router.post("/models/test", response_model=TestModelOut)
 async def test_model(body: TestModelIn, user: User = Depends(_admin),
                      session: AsyncSession = Depends(get_session)) -> TestModelOut:
-    return TestModelOut(**await AdminService(session).test_model(body.model, body.prompt))
+    return TestModelOut(**await AdminService(session).test_model(body.provider, body.model, body.prompt))
 
 
 @router.get("/audit", response_model=list[AuditOut])
