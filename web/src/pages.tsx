@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useT } from "./i18n/useT";
 import Onboarding from "./features/onboarding/Onboarding";
 import ChatScreen from "./features/chat/ChatScreen";
+import AdminPanel from "./features/admin/AdminPanel";
 import { isOnboarded } from "./features/onboarding/onboarded";
 
 export function Home() {
@@ -20,7 +21,7 @@ export function Admin() {
         <h2>{t("adminTitle")}</h2>
         <div className="bar-actions"><ThemeToggle /><LangToggle /></div>
       </header>
-      <p className="lead">{t("adminPlaceholder")}</p>
+      <AdminPanel />
     </main>
   );
 }
