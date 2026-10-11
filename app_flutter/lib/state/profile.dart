@@ -12,14 +12,14 @@ class OnboardedController extends Notifier<bool> {
   bool build() => readPref(ref.read(prefsProvider), _kOnboarded) == '1';
 
   Future<void> markDone() async {
-    state = true;
     await writePref(ref.read(prefsProvider), _kOnboarded, '1');
+    state = true;
   }
 
   /// Re-run onboarding (e.g. from Settings).
   Future<void> reset() async {
-    state = false;
     await writePref(ref.read(prefsProvider), _kOnboarded, '0');
+    state = false;
   }
 }
 
@@ -46,8 +46,8 @@ class OnboardingDraft {
   final List<String> interests;
   final String sensitive;
 
-  /// Only provided fields; sensitive context only when entered and not skipped.
-  ProfileUpdate toUpdate({bool skipSensitive = false}) {
+  /// Only provided fields; sensitive context only when entered.
+  ProfileUpdate toUpdate() {
     final nick = nickname.trim();
     final sens = sensitive.trim();
     return ProfileUpdate(
@@ -57,17 +57,16 @@ class OnboardingDraft {
       pronouns: pronouns,
       tonePref: tonePref,
       interests: interests.isEmpty ? null : List.of(interests),
-      sensitiveContext: (skipSensitive || sens.isEmpty) ? null : sens,
+      sensitiveContext: sens.isEmpty ? null : sens,
     );
   }
 }
 
 /// Ensures a session, PUTs the provided fields (skipped when nothing was
 /// provided), then marks onboarding done. Throws on failure (nothing marked).
-Future<void> submitOnboarding(WidgetRef ref, OnboardingDraft d,
-    {bool skipSensitive = false}) async {
+Future<void> submitOnboarding(WidgetRef ref, OnboardingDraft d) async {
   await ref.read(authProvider.notifier).ensureAnon();
-  final u = d.toUpdate(skipSensitive: skipSensitive);
+  final u = d.toUpdate();
   if (u.toJson().isNotEmpty) await ref.read(profileApiProvider).put(u);
   await ref.read(onboardedProvider.notifier).markDone();
 }

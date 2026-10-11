@@ -1,11 +1,11 @@
 {
-    "name": "ubuzima",
-    "short_name": "ubuzima",
+    "name": "Ubuzima",
+    "short_name": "Ubuzima",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFF8F4",
+    "theme_color": "#B3412F",
+    "description": "A calm, private health companion for young people.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

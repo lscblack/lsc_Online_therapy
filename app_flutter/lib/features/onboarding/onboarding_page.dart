@@ -32,7 +32,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   String? _age, _gender, _pron, _tone;
   final List<String> _interests = [];
 
-  final _headingFocus = FocusNode(debugLabel: 'onboarding-heading');
+  // One node per step so the AnimatedSwitcher's outgoing and incoming
+  // subtrees never share a FocusNode.
+  final _headingFocus = List.generate(
+      _steps, (i) => FocusNode(debugLabel: 'onboarding-heading-$i'));
 
   @override
   void initState() {
@@ -45,7 +48,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   void dispose() {
     _nick.dispose();
     _sens.dispose();
-    _headingFocus.dispose();
+    for (final f in _headingFocus) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -65,7 +70,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       _failed = false;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _headingFocus.requestFocus();
+      if (mounted) _headingFocus[_step].requestFocus();
     });
   }
 
@@ -211,7 +216,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   Widget _heading(String text, ThemeData theme) => Focus(
-        focusNode: _headingFocus,
+        focusNode: _headingFocus[_step],
         child: Semantics(
           header: true,
           child: Text(text, style: theme.textTheme.headlineSmall),

@@ -57,12 +57,17 @@ class AuthController extends Notifier<AuthState> {
     state = AuthState(ready: true, anonId: s.anonId);
   }
 
-  /// Clears all local credentials (after a server-side wipe) and mints a fresh identity.
-  Future<void> resetIdentity() async {
+  /// Clears stored credentials and in-memory session (no re-bootstrap).
+  Future<void> clearLocalIdentity() async {
     final store = ref.read(tokenStoreProvider);
     await store.clearUser();
     await store.clearAnonId();
     state = const AuthState();
+  }
+
+  /// Clears all local credentials (after a server-side wipe) and mints a fresh identity.
+  Future<void> resetIdentity() async {
+    await clearLocalIdentity();
     await ensureAnon();
   }
 }

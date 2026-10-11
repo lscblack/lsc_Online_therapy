@@ -6,6 +6,11 @@ import 'package:ubuzima/app.dart';
 import 'package:ubuzima/core/config.dart';
 import 'package:ubuzima/core/i18n/i18n.dart';
 import 'package:ubuzima/core/theme.dart';
+import 'package:ubuzima/data/api_client.dart';
+import 'package:ubuzima/data/token_store.dart';
+import 'package:ubuzima/state/auth.dart';
+import 'package:dio/dio.dart';
+import 'support/fakes.dart';
 
 Future<ProviderContainer> makeContainer([Map<String, Object> initial = const {}]) async {
   SharedPreferences.setMockInitialValues(initial);
@@ -54,8 +59,17 @@ void main() {
   testWidgets('shell shows app name and nav destinations', (tester) async {
     SharedPreferences.setMockInitialValues({'onboarded': '1'});
     final prefs = await SharedPreferences.getInstance();
+    final store = MemoryTokenStore();
     await tester.pumpWidget(ProviderScope(
-      overrides: [prefsProvider.overrideWithValue(prefs)],
+      overrides: [
+        prefsProvider.overrideWithValue(prefs),
+        // Deterministic offline backend (no real network in widget tests).
+        tokenStoreProvider.overrideWithValue(store),
+        apiClientProvider.overrideWithValue(ApiClient(
+            tokens: store,
+            dio: Dio()..httpClientAdapter = FakeAdapter((_) => offline()),
+            baseUrl: 'http://x')),
+      ],
       child: const UbuzimaApp(),
     ));
     await tester.pumpAndSettle();

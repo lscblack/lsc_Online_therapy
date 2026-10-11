@@ -46,6 +46,32 @@ const Map<String, Map<String, String>> kStrings = {
     'btn.save': 'Save',
     'btn.cancel': 'Cancel',
     'settings.theme': 'Theme',
+    'settings.appearance': 'Appearance',
+    'settings.profile': 'About you',
+    'settings.profile.note':
+        'Only what you change is saved. Clearing a box removes it.',
+    'settings.sens.note':
+        'Private and optional. Clear the box and save to remove it.',
+    'settings.loading': 'Loading your details',
+    'settings.loadError':
+        'I could not load your details. Check your connection and try again.',
+    'settings.saved': 'Saved. Thank you.',
+    'settings.saveError': 'I could not save that. Please try again.',
+    'settings.onboarding': 'Start again',
+    'settings.rerun': 'Go through the welcome steps again',
+    'settings.rerun.note': 'Your chats stay. You can update your answers.',
+    'settings.data': 'Your data',
+    'wipe.button': 'Delete my data',
+    'wipe.working': 'Deleting',
+    'wipe.note':
+        'Removes your profile and details from our servers and this device.',
+    'wipe.title': 'Delete all your data?',
+    'wipe.body':
+        'This removes your profile and details and starts you fresh. It cannot be undone.',
+    'wipe.confirm': 'Yes, delete',
+    'wipe.error':
+        'I could not delete your data just now. Nothing was changed. Please try again.',
+    'nav.voice': 'Voice',
     'settings.language': 'Language',
     'theme.system': 'System',
     'theme.light': 'Light',
@@ -146,6 +172,33 @@ const Map<String, Map<String, String>> kStrings = {
     'btn.save': 'Bika',
     'btn.cancel': 'Bireke',
     'settings.theme': 'Isura',
+    'settings.appearance': 'Isura n\'ururimi',
+    'settings.profile': 'Ibyawe',
+    'settings.profile.note':
+        'Habikwa gusa ibyo uhinduye. Gusiba mu kazu bibikuraho.',
+    'settings.sens.note':
+        'Ni ibanga kandi ntibirekwa. Siba mu kazu ubike kugira ngo bikurweho.',
+    'settings.loading': 'Ndimo gushaka amakuru yawe',
+    'settings.loadError':
+        'Sinashoboye kubona amakuru yawe. Genzura murandasi wongere ugerageze.',
+    'settings.saved': 'Byabitswe. Murakoze.',
+    'settings.saveError': 'Sinashoboye kubibika. Ongera ugerageze.',
+    'settings.onboarding': 'Tangira bundi bushya',
+    'settings.rerun': 'Subira mu ntambwe zo kwakira',
+    'settings.rerun.note':
+        'Ibiganiro byawe birahari. Ushobora guhindura ibyo wasubije.',
+    'settings.data': 'Amakuru yawe',
+    'wipe.button': 'Siba amakuru yanjye',
+    'wipe.working': 'Ndasiba',
+    'wipe.note':
+        'Bikuraho umwirondoro n\'amakuru yawe kuri seriveri no kuri iki gikoresho.',
+    'wipe.title': 'Gusiba amakuru yawe yose?',
+    'wipe.body':
+        'Ibi bikuraho umwirondoro n\'amakuru yawe ugatangira bundi bushya. Ntibishobora gusubizwa inyuma.',
+    'wipe.confirm': 'Yego, siba',
+    'wipe.error':
+        'Sinashoboye gusiba amakuru yawe ubu. Nta cyahindutse. Ongera ugerageze.',
+    'nav.voice': 'Ijwi',
     'settings.language': 'Ururimi',
     'theme.system': 'Iy\'igikoresho',
     'theme.light': 'Urumuri',
