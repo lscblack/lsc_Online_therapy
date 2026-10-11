@@ -6,7 +6,7 @@ import { ApiError } from "../../../api/client";
 
 const api = vi.hoisted(() => ({
   login: vi.fn(), listDocuments: vi.fn(), uploadDocument: vi.fn(), reviewDocument: vi.fn(),
-  reindexDocument: vi.fn(), deleteDocument: vi.fn(), listUsers: vi.fn(), disableUser: vi.fn(), listAudit: vi.fn(),
+  reindexDocument: vi.fn(), me: vi.fn(), deleteDocument: vi.fn(), listUsers: vi.fn(), disableUser: vi.fn(), listAudit: vi.fn(),
 }));
 vi.mock("../../../api/admin", () => ({ admin: api }));
 vi.mock("../../../api/identity", () => ({ identity: { anon: vi.fn(async () => ({ anon_id: "a" })) } }));
@@ -24,8 +24,10 @@ const user = (o = {}) => ({
   disabled: false, created_at: "2026-01-01T00:00:00Z", last_seen_at: null, ...o,
 });
 
-async function loginAs(role: "admin" | "reviewer") {
-  api.listUsers.mockResolvedValue([user({ email: "boss@x.org", role }), user({ id: "u2", email: "other@x.org", role: "user" })]);
+async function loginAs(role: "admin" | "reviewer" | "fail") {
+  if (role === "fail") api.me.mockRejectedValue(new ApiError("forbidden", "x", 403));
+  else api.me.mockResolvedValue({ role, email: "boss@x.org" });
+  api.listUsers.mockResolvedValue([user({ id: "u2", email: "other@x.org", role: "user" })]);
   render(<LangProvider><AuthProvider><AdminPanel /></AuthProvider></LangProvider>);
   fireEvent.change(screen.getByLabelText(en.adminEmail), { target: { value: "boss@x.org" } });
   fireEvent.change(screen.getByLabelText(en.adminPassword), { target: { value: "pw" } });
@@ -81,9 +83,9 @@ describe("Admin panel", () => {
     await screen.findByText("Sleep guide");
     api.reviewDocument.mockResolvedValue(doc());
     api.reindexDocument.mockResolvedValue(doc());
-    fireEvent.click(screen.getByRole("button", { name: en.adminApprove }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en.adminApprove}`) }));
     await waitFor(() => expect(api.reviewDocument).toHaveBeenCalledWith("d1", "approved", undefined));
-    fireEvent.click(screen.getByRole("button", { name: en.adminReindex }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en.adminReindex}`) }));
     await waitFor(() => expect(api.reindexDocument).toHaveBeenCalledWith("d1"));
   });
 
@@ -93,7 +95,7 @@ describe("Admin panel", () => {
     expect(screen.getByRole("tab", { name: en.adminUsers })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: en.adminAudit })).toBeInTheDocument();
     api.deleteDocument.mockResolvedValue(undefined);
-    fireEvent.click(screen.getByRole("button", { name: en.adminDelete }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en.adminDelete}`) }));
     expect(api.deleteDocument).not.toHaveBeenCalled();
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: en.adminConfirm }));
     await waitFor(() => expect(api.deleteDocument).toHaveBeenCalledWith("d1"));
@@ -102,12 +104,20 @@ describe("Admin panel", () => {
   it("reviewer cannot see delete, users or audit but can review/reindex/upload", async () => {
     await loginAs("reviewer");
     await screen.findByText("Sleep guide");
-    expect(screen.queryByRole("button", { name: en.adminDelete })).toBeNull();
+    expect(screen.queryByRole("button", { name: new RegExp(`^${en.adminDelete}`) })).toBeNull();
     expect(screen.queryByRole("tab", { name: en.adminUsers })).toBeNull();
     expect(screen.queryByRole("tab", { name: en.adminAudit })).toBeNull();
-    expect(screen.getByRole("button", { name: en.adminApprove })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: en.adminReindex })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: new RegExp(`^${en.adminApprove}`) })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: new RegExp(`^${en.adminReindex}`) })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: en.adminUpload })).toBeInTheDocument();
+  });
+
+  it("unknown role (me() fails) defaults to reviewer: no admin-only UI", async () => {
+    await loginAs("fail");
+    await screen.findByText("Sleep guide");
+    expect(screen.queryByRole("button", { name: new RegExp(en.adminDelete) })).toBeNull();
+    expect(screen.queryByRole("tab", { name: en.adminUsers })).toBeNull();
+    expect(screen.queryByRole("tab", { name: en.adminAudit })).toBeNull();
   });
 
   it("503 shows a clear message, no crash", async () => {
@@ -121,7 +131,7 @@ describe("Admin panel", () => {
     await loginAs("admin");
     api.reviewDocument.mockRejectedValue(new ApiError("forbidden", "x", 403));
     await screen.findByText("Sleep guide");
-    fireEvent.click(screen.getByRole("button", { name: en.adminReject }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en.adminReject}`) }));
     expect(await screen.findByRole("alert")).toHaveTextContent(en.adminForbidden);
   });
 });

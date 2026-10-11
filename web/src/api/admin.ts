@@ -1,6 +1,6 @@
 import { apiFetch } from "./client";
 import { setTokens } from "../auth/tokenStore";
-import type { AuditEntry, Document, ReviewStatus, TokenPair, User } from "./types";
+import type { AuditEntry, Document, ReviewStatus, TokenPair, User, UserRole } from "./types";
 
 const A = { auth: "admin" } as const;
 
@@ -11,6 +11,7 @@ export const admin = {
     setTokens("admin", t);
     return t;
   },
+  me: () => apiFetch<{ role: UserRole; email: string | null }>("/v1/admin/me", A),
   listDocuments: () => apiFetch<Document[]>("/v1/admin/documents", A),
   /** form fields: title, file, language?, topic_tags? */
   uploadDocument: (form: FormData) => apiFetch<Document>("/v1/admin/documents", { ...A, method: "POST", body: form }),

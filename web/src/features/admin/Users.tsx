@@ -31,7 +31,7 @@ export default function Users() {
                   <td>{u.role}</td>
                   <td><span className={`badge ${u.disabled ? "badge-failed" : "badge-indexed"}`}>{u.disabled ? t("adminDisabled") : t("adminActive")}</span></td>
                   <td className="admin-actions">
-                    {!u.disabled && <button type="button" className="btn btn-danger" onClick={() => setTarget(u)}>{t("adminDisable")}</button>}
+                    {!u.disabled && <button type="button" className="btn btn-danger" aria-label={`${t("adminDisable")}: ${u.email ?? u.id}`} onClick={() => setTarget(u)}>{t("adminDisable")}</button>}
                   </td>
                 </tr>
               ))}

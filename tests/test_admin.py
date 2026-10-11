@@ -240,3 +240,13 @@ async def test_admin_login(client, admin, reviewer, plain):
            {"email": "nobody@x.org", "password": PW}]
     for b in bad:
         assert (await client.post("/v1/admin/login", json=b)).status_code == 401
+
+
+async def test_me_returns_authenticated_role(client, admin, reviewer, plain):
+    r = await client.get("/v1/admin/me", headers=_h(admin))
+    assert r.status_code == 200 and r.json()["role"] == "admin"
+    r = await client.get("/v1/admin/me", headers=_h(reviewer))
+    assert r.status_code == 200 and r.json()["role"] == "reviewer"
+    assert r.json()["email"] == reviewer.email_
+    assert (await client.get("/v1/admin/me", headers=_h(plain))).status_code == 403
+    assert (await client.get("/v1/admin/me")).status_code == 401

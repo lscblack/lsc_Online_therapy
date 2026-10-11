@@ -8,7 +8,7 @@ from app.core.db import get_session
 from app.core.ratelimit import rate_limit
 from app.models import User
 from app.models.document import DocStatus, ReviewStatus
-from app.schemas.admin import AdminLoginRequest, AuditOut, DocumentOut, ReviewIn, UserOut
+from app.schemas.admin import AdminLoginRequest, AdminMeOut, AuditOut, DocumentOut, ReviewIn, UserOut
 from app.schemas.identity import TokenPair
 from app.services.admin import AdminService
 from app.services.identity import IdentityService, InvalidCredentials
@@ -33,6 +33,12 @@ async def login(body: AdminLoginRequest,
     except InvalidCredentials as e:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials") from e
     return TokenPair(access_token=t.access_token, refresh_token=t.refresh_token)
+
+
+@router.get("/me", response_model=AdminMeOut)
+async def me(user: User = Depends(_staff)) -> AdminMeOut:
+    """The authenticated staff user's role (from the DB row): the UI's single source of truth."""
+    return AdminMeOut(role=user.role, email=user.email)
 
 
 @router.post("/documents", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)

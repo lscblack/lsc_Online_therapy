@@ -40,3 +40,8 @@ class AuditOut(BaseModel):
     def from_row(cls, r) -> "AuditOut":
         return cls(id=r.id, actor_id=r.actor_id, action=r.action, target=r.target,
                    metadata=r.meta, at=r.at)
+
+
+class AdminMeOut(BaseModel):
+    role: UserRole
+    email: str | None

@@ -45,10 +45,10 @@ export default function Documents({ canDelete }: { canDelete: boolean }) {
                   <td><span className={`badge badge-${d.status}`}>{t(STATUS[d.status] ?? "adminStatusUploaded")}</span></td>
                   <td><span className={`badge badge-${d.review_status}`}>{t(REVIEW[d.review_status] ?? "adminReviewPending")}</span></td>
                   <td className="admin-actions">
-                    <button type="button" className="btn" onClick={() => void run(() => admin.reviewDocument(d.id, "approved", undefined))}>{t("adminApprove")}</button>
-                    <button type="button" className="btn" onClick={() => void run(() => admin.reviewDocument(d.id, "rejected", undefined))}>{t("adminReject")}</button>
-                    <button type="button" className="btn" onClick={() => void run(() => admin.reindexDocument(d.id))}>{t("adminReindex")}</button>
-                    {canDelete && <button type="button" className="btn btn-danger" onClick={() => setDeleting(d)}>{t("adminDelete")}</button>}
+                    <button type="button" className="btn" aria-label={`${t("adminApprove")}: ${d.title}`} onClick={() => void run(() => admin.reviewDocument(d.id, "approved", undefined))}>{t("adminApprove")}</button>
+                    <button type="button" className="btn" aria-label={`${t("adminReject")}: ${d.title}`} onClick={() => void run(() => admin.reviewDocument(d.id, "rejected", undefined))}>{t("adminReject")}</button>
+                    <button type="button" className="btn" aria-label={`${t("adminReindex")}: ${d.title}`} onClick={() => void run(() => admin.reindexDocument(d.id))}>{t("adminReindex")}</button>
+                    {canDelete && <button type="button" className="btn btn-danger" aria-label={`${t("adminDelete")}: ${d.title}`} onClick={() => setDeleting(d)}>{t("adminDelete")}</button>}
                   </td>
                 </tr>
               ))}

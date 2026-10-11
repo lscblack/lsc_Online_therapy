@@ -157,7 +157,7 @@ describe("auth", () => {
     setTokens("user", pair("u"));
     server.use(
       http.post(U("/v1/admin/login"), () => HttpResponse.json(pair("adm"))),
-      http.get(U("/v1/admin/users"), () => HttpResponse.json([{ id: "1", email: "a@b.c", role: "admin", is_upgraded: true, locale: "en", disabled: false, created_at: "", last_seen_at: null }])),
+      http.get(U("/v1/admin/me"), () => HttpResponse.json({ role: "admin", email: "a@b.c" })),
     );
     const { result } = renderHook(() => useAuth(), { wrapper: wrap });
     await waitFor(() => expect(result.current.ready).toBe(true));

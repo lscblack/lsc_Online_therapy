@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { admin } from "../api/admin";
 import { identity } from "../api/identity";
-import type { AnonSession, User, UserRole } from "../api/types";
+import type { AnonSession, UserRole } from "../api/types";
 import { onAuthExpired } from "../api/client";
 import { clearTokens, getAnonId, getTokens } from "./tokenStore";
 
@@ -59,12 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const adminLogin = useCallback(async (email: string, password: string) => {
     await admin.login(email, password);
     setIsAdmin(true);
-    try {
-      const users = await admin.listUsers();
-      const me = users.find((u: User) => u.email?.toLowerCase() === email.toLowerCase());
-      const r = me?.role ?? "admin";
-      writeRole(r); setRole(r);
-    } catch { setRole("admin"); writeRole("admin"); }
+    // Role is for UI gating only (the server stays authoritative). Source of truth: GET /v1/admin/me.
+    // Least privilege: anything but an explicit "admin" (including a failed call) is "reviewer".
+    let r: UserRole = "reviewer";
+    try { if ((await admin.me()).role === "admin") r = "admin"; } catch { /* default reviewer */ }
+    writeRole(r); setRole(r);
   }, []);
 
   const adminLogout = useCallback(() => {
