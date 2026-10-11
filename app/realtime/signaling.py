@@ -14,6 +14,7 @@ aiortc is imported lazily (only in `Runtime.new_peer_connection`), so tests inje
 import asyncio
 import contextlib
 import logging
+import secrets
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -44,6 +45,7 @@ class LiveEntry:
     created_at: float = field(default_factory=time.monotonic)
     last_activity: float = field(default_factory=time.monotonic)
     ws_attached: bool = False
+    errors: list = field(default_factory=list)  # teardown step failures (for tests/diagnostics)
     _closing: asyncio.Task | None = field(default=None, repr=False)
 
     def touch(self) -> None:
@@ -61,7 +63,8 @@ class LiveEntry:
                      self._close_pc, self._close_db):
             try:
                 await step()
-            except Exception:  # teardown must run to completion
+            except Exception as e:  # teardown must run to completion
+                self.errors.append((step.__name__, e))
                 logger.exception("live session teardown step failed: %s", step.__name__)
 
     async def _close_live(self) -> None:
@@ -131,6 +134,40 @@ class SessionRegistry:
 
 
 registry = SessionRegistry()
+_bg: set[asyncio.Task] = set()
+
+
+async def _discard(pc: Any, db: Any) -> None:
+    with contextlib.suppress(Exception):
+        await pc.close()
+    if db is not None:
+        with contextlib.suppress(Exception):
+            await db.rollback()
+        with contextlib.suppress(Exception):
+            await db.close()
+
+
+# --- WS tickets: short-lived, single-use, bound to one session (so the long-lived access JWT
+# never appears in a WS URL / access log).
+TICKET_TTL_S = 60.0
+_tickets: dict[str, tuple[str, str, float]] = {}
+
+
+def issue_ticket(session_id: str, identity: str) -> str:
+    now = time.monotonic()
+    for k in [k for k, v in _tickets.items() if v[2] < now]:
+        del _tickets[k]
+    t = secrets.token_urlsafe(24)
+    _tickets[t] = (session_id, identity, now + TICKET_TTL_S)
+    return t
+
+
+def consume_ticket(ticket: str, session_id: str) -> str | None:
+    """Return the bound identity if valid for this session (and burn it), else None."""
+    rec = _tickets.pop(ticket, None)
+    if rec is None or rec[0] != session_id or rec[2] < time.monotonic():
+        return None
+    return rec[1]
 
 
 class Runtime:
@@ -193,9 +230,14 @@ async def create_session(rt: Runtime, user: Any, language: str, voice: str | Non
     identity = str(user.id)
     session_id = uuid.uuid4().hex
     pc = rt.new_peer_connection()
-    db = rt.new_db()
-    track = rt.new_tts_track()
-    live = rt.new_live_session(user, language, db, tts_track=track, voice=voice)
+    db = None
+    try:
+        db = rt.new_db()
+        track = rt.new_tts_track()
+        live = rt.new_live_session(user, language, db, tts_track=track, voice=voice)
+    except BaseException:
+        await _discard(pc, db)
+        raise
     entry = LiveEntry(id=session_id, identity=identity, live=live, pc=pc, db=db, track=track)
     try:
         registry.add(entry)  # sync; re-checks the cap
@@ -211,7 +253,9 @@ async def create_session(rt: Runtime, user: Any, language: str, voice: str | Non
 
     def on_state() -> None:
         if getattr(pc, "connectionState", None) in ("failed", "closed"):
-            asyncio.ensure_future(entry.close())
+            t = asyncio.ensure_future(entry.close())
+        _bg.add(t)  # keep a reference so the task cannot be GC'd mid-flight
+        t.add_done_callback(_bg.discard)
 
     pc.on("track", on_track)
     pc.on("connectionstatechange", on_state)

@@ -182,8 +182,9 @@ def test_offer_over_cap_refused(rt, authed):
 
 def test_control_ws_streams_session_events(rt, authed):
     with TestClient(app) as c:
-        sid = c.post("/v1/live/offer", json=BODY).json()["session_id"]
-        with c.websocket_connect(f"/v1/live?session_id={sid}&token=good") as ws:
+        j = c.post("/v1/live/offer", json=BODY).json()
+        sid = j["session_id"]
+        with c.websocket_connect(f"/v1/live?session_id={sid}&ticket={j['ws_ticket']}") as ws:
             assert ws.receive_json() == {"type": "state", "state": "listening"}
             assert ws.receive_json() == {"type": "transcript_partial", "text": "hel"}
             ws.send_json({"type": "barge_in"})
@@ -191,33 +192,115 @@ def test_control_ws_streams_session_events(rt, authed):
         assert rt.lives[0].barged == 1
 
 
-def test_ws_bad_token_and_foreign_session(rt, authed):
-    from starlette.websockets import WebSocketDisconnect
+def _ws_close_code(c, url):
+    """Connect must SUCCEED (socket accepted) and then deliver the app close code; a pre-accept
+    close would be an HTTP 403 handshake rejection and the context would raise instead."""
+    with c.websocket_connect(url) as ws:
+        msg = ws.receive()
+        assert msg["type"] == "websocket.close"
+        return msg["code"]
+
+
+def test_ws_close_codes_delivered_after_accept(rt, authed):
+    with TestClient(app) as c:
+        j = c.post("/v1/live/offer", json=BODY).json()
+        sid, tk = j["session_id"], j["ws_ticket"]
+        assert _ws_close_code(c, f"/v1/live?session_id={sid}&ticket=bad") == 4401
+        assert _ws_close_code(c, f"/v1/live?session_id={sid}") == 4401
+        assert _ws_close_code(c, "/v1/live?session_id=nope&ticket=x") == 4401
+        # valid bearer header but unknown session -> 4404
+        with c.websocket_connect("/v1/live?session_id=nope",
+                                 headers={"Authorization": "Bearer good"}) as ws:
+            assert ws.receive()["code"] == 4404
+        # a ticket for session A is rejected for B (and burned); and is single-use
+        j2 = c.post("/v1/live/offer", json=BODY).json()
+        assert _ws_close_code(c, f"/v1/live?session_id={j2['session_id']}&ticket={tk}") == 4401
+        assert _ws_close_code(c, f"/v1/live?session_id={sid}&ticket={tk}") == 4401
+        tk = signaling.issue_ticket(sid, str(USER.id))
+        with c.websocket_connect(f"/v1/live?session_id={sid}&ticket={tk}") as ws:
+            ws.receive_json()
+        assert _ws_close_code(c, f"/v1/live?session_id={sid}&ticket={tk}") == 4401
+
+
+def test_ws_already_attached_4409(rt, authed):
+    with TestClient(app) as c:
+        j = c.post("/v1/live/offer", json=BODY).json()
+        sid = j["session_id"]
+        with c.websocket_connect(f"/v1/live?session_id={sid}&ticket={j['ws_ticket']}") as ws:
+            ws.receive_json()
+            with c.websocket_connect(f"/v1/live?session_id={sid}",
+                                     headers={"Authorization": "Bearer good"}) as ws2:
+                assert ws2.receive()["code"] == 4409
+            assert not rt.lives[0].closed  # the intruder does not tear down the owner
+            ws.send_json({"type": "end"})
+
+
+def test_cap_slot_released_after_teardown(rt, authed):
+    with TestClient(app) as c:
+        ids = [c.post("/v1/live/offer", json=BODY).json()["session_id"] for _ in range(2)]
+        assert c.post("/v1/live/offer", json=BODY).status_code == 429
+        e = signaling.registry.get(ids[0])
+        c.portal.call(e.close)
+        assert c.post("/v1/live/offer", json=BODY).status_code == 200
+
+
+def test_construction_failure_cleans_up_pc_and_db(rt, authed):
+    def boom(*a, **k):
+        raise RuntimeError("x")
+    rt.new_tts_track = boom
+    with TestClient(app, raise_server_exceptions=False) as c:
+        assert c.post("/v1/live/offer", json=BODY).status_code == 500
+    assert rt.pcs[0].closed
+    assert rt.dbs[0].rolled_back and rt.dbs[0].closed
+    assert len(signaling.registry) == 0
+
+
+def test_internal_error_is_500_not_400(rt, authed):
+    async def boom(self, d):
+        raise RuntimeError("internal")
+    FakePC.setRemoteDescription, orig = boom, FakePC.setRemoteDescription
+    try:
+        with TestClient(app, raise_server_exceptions=False) as c:
+            assert c.post("/v1/live/offer", json=BODY).status_code == 500
+    finally:
+        FakePC.setRemoteDescription = orig
+    assert rt.pcs[0].closed and len(signaling.registry) == 0
+
+
+def test_connection_failed_closes_session(rt, authed):
     with TestClient(app) as c:
         sid = c.post("/v1/live/offer", json=BODY).json()["session_id"]
-        for url, code in ((f"/v1/live?session_id={sid}&token=bad", 4401),
-                          ("/v1/live?session_id=nope&token=good", 4404)):
-            with pytest.raises(WebSocketDisconnect) as ei:
-                with c.websocket_connect(url):
-                    pass
-            assert ei.value.code == code
-        assert not rt.lives[0].closed
+        e = signaling.registry.get(sid)
+        pc = rt.pcs[0]
+        pc.connectionState = "failed"
+
+        async def fire():
+            pc.handlers["connectionstatechange"]()
+            while e._closing is None:
+                await asyncio.sleep(0.01)
+            await asyncio.wait_for(asyncio.shield(e._closing), 2)
+        c.portal.call(fire)
+        assert rt.lives[0].closed and signaling.registry.get(sid) is None
 
 
 @pytest.mark.parametrize("how", ["end", "drop"])
 def test_disconnect_closes_session(rt, authed, how):
     with TestClient(app) as c:
-        sid = c.post("/v1/live/offer", json=BODY).json()["session_id"]
-        with c.websocket_connect(f"/v1/live?session_id={sid}&token=good") as ws:
+        j = c.post("/v1/live/offer", json=BODY).json()
+        sid = j["session_id"]
+        entry = signaling.registry.get(sid)
+        with c.websocket_connect(f"/v1/live?session_id={sid}&ticket={j['ws_ticket']}") as ws:
             ws.receive_json()
             if how == "end":
                 ws.send_json({"type": "end"})
-        # leaving the context drops the socket
-        import time
-        for _ in range(100):
-            if rt.dbs[0].closed:
-                break
-            time.sleep(0.02)
+        # socket dropped on exit; wait deterministically for the teardown task itself
+
+        async def wait_closed():
+            while entry._closing is None:
+                await asyncio.sleep(0.01)
+            await asyncio.wait_for(asyncio.shield(entry._closing), 5)
+        c.portal.call(wait_closed)
+    assert entry.errors == []  # no swallowed teardown failure
     assert rt.lives[0].closed
     assert rt.pcs[0].closed
     assert rt.dbs[0].rolled_back and rt.dbs[0].closed

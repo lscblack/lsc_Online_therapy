@@ -37,12 +37,9 @@ def test_all_routes_registered():
 
 
 def test_live_ws_requires_auth():
-    from starlette.websockets import WebSocketDisconnect
     with TestClient(app) as c:
-        with pytest.raises(WebSocketDisconnect) as ei:
-            with c.websocket_connect("/v1/live?session_id=x"):
-                pass
-        assert ei.value.code == 4401
+        with c.websocket_connect("/v1/live?session_id=x") as ws:
+            assert ws.receive()["code"] == 4401
 
 
 async def test_error_envelope_shape(client):

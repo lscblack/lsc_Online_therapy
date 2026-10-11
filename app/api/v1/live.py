@@ -6,10 +6,12 @@ POST /v1/live/offer   JWT (Authorization: Bearer). Body {sdp, type="offer", lang
                       RTCPeerConnection exists.
 POST /v1/live/ice     JWT. Body {session_id, candidate: {candidate, sdpMid, sdpMLineIndex} | null}
                       (null = end of candidates) -> 204. 404 if not your session.
-WS   /v1/live         Control channel. Query: session_id (required), token (access JWT).
-                      Browsers/Flutter cannot always set WS headers, hence the query token; an
-                      `Authorization: Bearer` header is also accepted. Bad auth closes with 4401,
-                      unknown/foreign session 4404, second attach 4409.
+WS   /v1/live         Control channel. Query: session_id (required), ticket (the `ws_ticket` from
+                      /offer: single-use, ~60s, bound to the session; the access JWT is NOT put
+                      in the URL). An `Authorization: Bearer` header is accepted as a fallback.
+                      The socket is accepted first, then closed with an app code so clients can
+                      tell failures apart: 4401 unauthorized, 4404 unknown/foreign session,
+                      4409 already attached.
                       Server -> client: JSON LiveSession events (state, transcript_partial/final,
                       answer, citations, safety_flags, barge_in, error).
                       Client -> server: {"type":"barge_in"} | {"type":"end"} | {"type":"ice", candidate}.
@@ -17,6 +19,7 @@ WS   /v1/live         Control channel. Query: session_id (required), token (acce
 """
 import asyncio
 import contextlib
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
@@ -25,6 +28,8 @@ from app.api.deps import current_user
 from app.models import User
 from app.realtime import signaling
 from app.realtime.signaling import Runtime, get_runtime
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["live"])
 
@@ -45,6 +50,7 @@ class OfferOut(BaseModel):
     type: str = "answer"
     sdp: str
     ice_servers: list[dict]
+    ws_ticket: str  # single-use, ~60s, bound to session_id; pass as ?ticket= on the WS
 
 
 class IceIn(BaseModel):
@@ -64,9 +70,11 @@ async def offer(body: OfferIn, user: User = Depends(current_user),
     except signaling.CapExceeded:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
                             "Too many concurrent live sessions") from None
-    except Exception as e:
+    except (ValueError, KeyError, TypeError) as e:  # malformed SDP; anything else is a real 500
+        logger.warning("rejected offer: %s", type(e).__name__)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid offer") from e
-    return OfferOut(session_id=entry.id, sdp=answer, ice_servers=rt.ice_servers(str(user.id)))
+    return OfferOut(session_id=entry.id, sdp=answer, ice_servers=rt.ice_servers(str(user.id)),
+                    ws_ticket=signaling.issue_ticket(entry.id, str(user.id)))
 
 
 async def _add_ice(rt: Runtime, entry, candidate: dict | None) -> None:
@@ -86,34 +94,47 @@ async def ice(body: IceIn, user: User = Depends(current_user),
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid candidate") from e
 
 
-def _ws_token(ws: WebSocket) -> str | None:
-    tok = ws.query_params.get("token")
-    if tok:
-        return tok
+def _bearer(ws: WebSocket) -> str | None:
     auth = ws.headers.get("authorization", "")
     return auth[7:] if auth.lower().startswith("bearer ") else None
+
+
+async def _reject(ws: WebSocket, code: int, reason: str) -> None:
+    # Accept first: closing before accept becomes an HTTP 403 and the app code never arrives.
+    await ws.accept()
+    await ws.close(code=code, reason=reason)
 
 
 @router.websocket("/v1/live")
 async def live(ws: WebSocket, session_id: str = Query(default=""),
                rt: Runtime = Depends(get_runtime)) -> None:
-    token = _ws_token(ws)
-    try:
-        user = await rt.ws_user(token) if token else None
-    except HTTPException:
-        user = None
-    if user is None:
-        await ws.close(code=WS_UNAUTHORIZED, reason="unauthorized")
+    ticket = ws.query_params.get("ticket")
+    identity: str | None = None
+    if ticket:
+        identity = signaling.consume_ticket(ticket, session_id)
+    else:
+        token = _bearer(ws)
+        if token:
+            try:
+                identity = str((await rt.ws_user(token)).id)
+            except HTTPException:
+                identity = None
+    if identity is None:
+        await _reject(ws, WS_UNAUTHORIZED, "unauthorized")
         return
     entry = signaling.registry.get(session_id)
-    if entry is None or entry.identity != str(user.id):
-        await ws.close(code=WS_NOT_FOUND, reason="unknown_session")
+    if entry is None or entry.identity != identity:
+        await _reject(ws, WS_NOT_FOUND, "unknown_session")
         return
     if entry.ws_attached:
-        await ws.close(code=WS_CONFLICT, reason="already_attached")
+        await _reject(ws, WS_CONFLICT, "already_attached")
         return
     entry.ws_attached = True
-    await ws.accept()
+    try:
+        await ws.accept()
+    except BaseException:
+        entry.ws_attached = False
+        raise
 
     async def pump_out() -> None:
         async for ev in entry.live.events():
