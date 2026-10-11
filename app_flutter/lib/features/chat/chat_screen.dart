@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/i18n/i18n.dart';
 import '../../state/auth.dart';
 import '../../state/chat.dart';
+import '../voice/voice_panel.dart';
 import 'assistant_response.dart';
 
 export 'assistant_response.dart';
@@ -196,6 +197,14 @@ class _Composer extends ConsumerWidget {
                 ),
               ),
             ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.outlined(
+            key: const Key('voice-button'),
+            tooltip: t('voice.open'),
+            onPressed: () => showVoicePanel(context),
+            icon: const Icon(Icons.mic_none),
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           ),
           const SizedBox(width: 8),
           IconButton.filled(

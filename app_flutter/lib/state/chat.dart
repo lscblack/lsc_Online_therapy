@@ -64,6 +64,11 @@ class ChatController extends Notifier<ChatState> {
   @override
   ChatState build() => const ChatState();
 
+  /// Continue the same conversation from another surface (e.g. voice).
+  void adoptConversation(String id) {
+    if (id.isNotEmpty) state = state.copyWith(conversationId: id);
+  }
+
   /// Send a user message and stream the assistant's reply.
   Future<void> send(String text) async {
     final msg = text.trim();
