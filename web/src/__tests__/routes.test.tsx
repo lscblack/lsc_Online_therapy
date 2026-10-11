@@ -19,10 +19,11 @@ describe("app routes + nav", () => {
     expect(screen.getByRole("navigation", { name: en.navMain })).toBeInTheDocument();
     expect(screen.getByRole("main")).toBeInTheDocument();
   });
-  it("nav links to Chat, Settings and Admin", () => {
+  it("nav links to Home, Chat, Settings and Admin", () => {
     at("/");
     const nav = screen.getByRole("navigation", { name: en.navMain });
-    expect(nav.querySelector('a[href="/"]')).toHaveTextContent(en.navChat);
+    expect(nav.querySelector('a[href="/"]')).toHaveTextContent(en.navHome);
+    expect(nav.querySelector('a[href="/chat"]')).toHaveTextContent(en.navChat);
     expect(nav.querySelector('a[href="/settings"]')).toHaveTextContent(en.settings);
     expect(nav.querySelector('a[href="/admin"]')).toHaveTextContent(en.navAdmin);
   });

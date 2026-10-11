@@ -1,73 +1,96 @@
-/* Ubuzima design tokens. Flat colours only: no gradients anywhere.
-   Contrast (WCAG AA): text on bg >= 12:1, muted >= 5.5:1, primary-contrast on primary >= 5:1. */
+/* Ubuzima design tokens. Refined, warm emerald/forest green — not a clinical "hospital green".
+   Flat colours only: no gradients anywhere.
+   Contrast (WCAG AA): text on bg >= 12:1, muted >= 5.5:1, contrast on primary >= 5:1. */
 :root {
-  --color-bg: #f3f7fb;
+  --color-bg: #f1f7f3;
   --color-surface: #ffffff;
-  --color-surface-2: #e7f1f8;
-  --color-border: #cadcea;
-  --color-text: #0f1f2e;
-  --color-text-muted: #45607a;
-  --color-primary: #1565c0;          /* blue */
+  --color-surface-2: #e6f1ea;
+  --color-surface-3: #d9ebe0;
+  --color-border: #cadfd2;
+  --color-text: #10231a;
+  --color-text-muted: #4b6459;
+  --color-primary: #117a53;          /* emerald/forest green */
+  --color-primary-strong: #0c5f41;
+  --color-primary-soft: #e0f0e8;
   --color-primary-contrast: #ffffff;
-  --color-accent: #0e8a5f;           /* green */
+  --color-accent: #0f8f88;            /* teal-green, used sparingly for highlights */
   --color-accent-contrast: #ffffff;
+  --color-warn: #b7791f;
   --color-danger: #c0392b;
-  --color-focus: #1565c0;
+  --color-focus: #117a53;
 
   --radius-sm: 8px;
   --radius-md: 14px;
-  --radius-lg: 22px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
   --radius-pill: 999px;
 
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
-  --space-5: 24px; --space-6: 32px;
+  --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
 
-  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+  --text-xs: 0.78rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
-  --text-lg: 1.25rem;
-  --text-xl: 1.625rem;
-  --text-2xl: 2.125rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.55rem;
+  --text-2xl: 2.1rem;
+  --text-3xl: 2.9rem;
   --leading: 1.55;
 
-  --shadow-sm: 0 1px 3px rgba(43, 36, 32, 0.12);
+  --shadow-sm: 0 1px 2px rgba(16, 35, 26, 0.08), 0 1px 3px rgba(16, 35, 26, 0.06);
+  --shadow-md: 0 4px 12px rgba(16, 35, 26, 0.10), 0 2px 4px rgba(16, 35, 26, 0.06);
+  --shadow-lg: 0 12px 32px rgba(16, 35, 26, 0.14);
   --motion-fast: 150ms;
   --motion-base: 250ms;
+  --motion-slow: 450ms;
   color-scheme: light;
 }
 
 :root[data-theme="dark"] {
-  --color-bg: #0b1620;
-  --color-surface: #12212e;
-  --color-surface-2: #1b3242;
-  --color-border: #2c4a5f;
-  --color-text: #e9f2f9;
-  --color-text-muted: #9db6c8;
-  --color-primary: #4ea3ff;
-  --color-primary-contrast: #06121c;
-  --color-accent: #34d6a0;
-  --color-accent-contrast: #052016;
+  --color-bg: #0a1712;
+  --color-surface: #0f201a;
+  --color-surface-2: #163027;
+  --color-surface-3: #1e3d31;
+  --color-border: #2a4a3c;
+  --color-text: #e6f2ec;
+  --color-text-muted: #9cbcac;
+  --color-primary: #45cf9f;
+  --color-primary-strong: #63dcb0;
+  --color-primary-soft: #14362a;
+  --color-primary-contrast: #042016;
+  --color-accent: #35c7bd;
+  --color-accent-contrast: #042016;
+  --color-warn: #e0b05a;
   --color-danger: #ff6b5e;
-  --color-focus: #4ea3ff;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --color-focus: #45cf9f;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.6);
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-bg: #0b1620;
-    --color-surface: #12212e;
-    --color-surface-2: #1b3242;
-    --color-border: #2c4a5f;
-    --color-text: #e9f2f9;
-    --color-text-muted: #9db6c8;
-    --color-primary: #4ea3ff;
-    --color-primary-contrast: #06121c;
-    --color-accent: #34d6a0;
-    --color-accent-contrast: #052016;
+    --color-bg: #0a1712;
+    --color-surface: #0f201a;
+    --color-surface-2: #163027;
+    --color-surface-3: #1e3d31;
+    --color-border: #2a4a3c;
+    --color-text: #e6f2ec;
+    --color-text-muted: #9cbcac;
+    --color-primary: #45cf9f;
+    --color-primary-strong: #63dcb0;
+    --color-primary-soft: #14362a;
+    --color-primary-contrast: #042016;
+    --color-accent: #35c7bd;
+    --color-accent-contrast: #042016;
+    --color-warn: #e0b05a;
     --color-danger: #ff6b5e;
-    --color-focus: #4ea3ff;
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --color-focus: #45cf9f;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.6);
     color-scheme: dark;
   }
 }
@@ -79,6 +102,7 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: var(--leading);
+  -webkit-font-smoothing: antialiased;
 }
 
 @media (prefers-reduced-motion: reduce) {

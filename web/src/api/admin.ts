@@ -1,6 +1,8 @@
 import { apiFetch } from "./client";
 import { setTokens } from "../auth/tokenStore";
-import type { AuditEntry, Document, ReviewStatus, TokenPair, User, UserRole } from "./types";
+import type {
+  AuditEntry, Document, ModelConfig, ReviewStatus, TestModelResult, TokenPair, User, UserRole,
+} from "./types";
 
 const A = { auth: "admin" } as const;
 
@@ -25,4 +27,9 @@ export const admin = {
   disableUser: (id: string) =>
     apiFetch<User>(`/v1/admin/users/${encodeURIComponent(id)}/disable`, { ...A, method: "POST" }),
   listAudit: () => apiFetch<AuditEntry[]>("/v1/admin/audit", A),
+  getModels: () => apiFetch<ModelConfig>("/v1/admin/models", A),
+  setModel: (model: string) =>
+    apiFetch<ModelConfig>("/v1/admin/models", { ...A, method: "PUT", body: { model } }),
+  testModel: (model: string, prompt?: string) =>
+    apiFetch<TestModelResult>("/v1/admin/models/test", { ...A, method: "POST", body: { model, ...(prompt ? { prompt } : {}) } }),
 };

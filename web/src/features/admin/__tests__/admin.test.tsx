@@ -7,6 +7,7 @@ import { ApiError } from "../../../api/client";
 const api = vi.hoisted(() => ({
   login: vi.fn(), listDocuments: vi.fn(), uploadDocument: vi.fn(), reviewDocument: vi.fn(),
   reindexDocument: vi.fn(), me: vi.fn(), deleteDocument: vi.fn(), listUsers: vi.fn(), disableUser: vi.fn(), listAudit: vi.fn(),
+  getModels: vi.fn(), setModel: vi.fn(), testModel: vi.fn(),
 }));
 vi.mock("../../../api/admin", () => ({ admin: api }));
 vi.mock("../../../api/identity", () => ({ identity: { anon: vi.fn(async () => ({ anon_id: "a" })) } }));
@@ -33,6 +34,11 @@ async function loginAs(role: "admin" | "reviewer" | "fail") {
   fireEvent.change(screen.getByLabelText(en.adminPassword), { target: { value: "pw" } });
   fireEvent.click(screen.getByRole("button", { name: en.login }));
   await screen.findByRole("button", { name: en.logout });
+  // Admins land on the Overview; navigate to Documents (the doc-centric tests expect it).
+  if (role === "admin") {
+    const side = screen.getByRole("navigation", { name: en.adminConsole });
+    fireEvent.click(within(side).getByRole("button", { name: en.adminDocuments }));
+  }
 }
 
 beforeEach(() => {
@@ -41,6 +47,11 @@ beforeEach(() => {
   api.login.mockResolvedValue({});
   api.listDocuments.mockResolvedValue([doc()]);
   api.listAudit.mockResolvedValue([]);
+  api.getModels.mockResolvedValue({
+    active: "inclusionai/ling-3.1-flash", default: "inclusionai/ling-3.1-flash",
+    is_override: false, provider: "openrouter",
+    catalog: [{ id: "inclusionai/ling-3.1-flash", label: "Ling 3.1 Flash", tier: "free", note: "n" }],
+  });
 });
 
 describe("Admin panel", () => {
@@ -92,8 +103,9 @@ describe("Admin panel", () => {
   it("admin sees delete (with confirm), users and audit", async () => {
     await loginAs("admin");
     await screen.findByText("Sleep guide");
-    expect(screen.getByRole("tab", { name: en.adminUsers })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: en.adminAudit })).toBeInTheDocument();
+    const side = screen.getByRole("navigation", { name: en.adminConsole });
+    expect(within(side).getByRole("button", { name: en.adminUsers })).toBeInTheDocument();
+    expect(within(side).getByRole("button", { name: en.adminAudit })).toBeInTheDocument();
     api.deleteDocument.mockResolvedValue(undefined);
     fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en.adminDelete}`) }));
     expect(api.deleteDocument).not.toHaveBeenCalled();
@@ -105,8 +117,8 @@ describe("Admin panel", () => {
     await loginAs("reviewer");
     await screen.findByText("Sleep guide");
     expect(screen.queryByRole("button", { name: new RegExp(`^${en.adminDelete}`) })).toBeNull();
-    expect(screen.queryByRole("tab", { name: en.adminUsers })).toBeNull();
-    expect(screen.queryByRole("tab", { name: en.adminAudit })).toBeNull();
+    expect(screen.queryByRole("button", { name: en.adminUsers })).toBeNull();
+    expect(screen.queryByRole("button", { name: en.adminAudit })).toBeNull();
     expect(screen.getByRole("button", { name: new RegExp(`^${en.adminApprove}`) })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: new RegExp(`^${en.adminReindex}`) })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: en.adminUpload })).toBeInTheDocument();
@@ -116,8 +128,8 @@ describe("Admin panel", () => {
     await loginAs("fail");
     await screen.findByText("Sleep guide");
     expect(screen.queryByRole("button", { name: new RegExp(en.adminDelete) })).toBeNull();
-    expect(screen.queryByRole("tab", { name: en.adminUsers })).toBeNull();
-    expect(screen.queryByRole("tab", { name: en.adminAudit })).toBeNull();
+    expect(screen.queryByRole("button", { name: en.adminUsers })).toBeNull();
+    expect(screen.queryByRole("button", { name: en.adminAudit })).toBeNull();
   });
 
   it("503 shows a clear message, no crash", async () => {

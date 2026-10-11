@@ -14,12 +14,15 @@ export default function Layout() {
     <div className="shell">
       <header className="nav">
         <div className="nav-inner">
-          <span className="nav-brand">{t("appName")}</span>
+          <NavLink to="/" className="nav-brand" onClick={close}>
+            <span className="nav-logo" aria-hidden="true">U</span>{t("appName")}
+          </NavLink>
           <button type="button" className="btn btn-ghost nav-burger" aria-expanded={open} aria-controls="nav-menu"
             onClick={() => setOpen((o) => !o)}>{t("navMenu")}</button>
           <div id="nav-menu" className={`nav-menu${open ? " open" : ""}`}>
             <nav aria-label={t("navMain")} className="nav-links">
-              <NavLink to="/" end onClick={close}>{t("navChat")}</NavLink>
+              <NavLink to="/" end onClick={close}>{t("navHome")}</NavLink>
+              <NavLink to="/chat" onClick={close}>{t("navChat")}</NavLink>
               <NavLink to="/settings" onClick={close}>{t("settings")}</NavLink>
               <NavLink to="/admin" onClick={close}>{t("navAdmin")}</NavLink>
             </nav>

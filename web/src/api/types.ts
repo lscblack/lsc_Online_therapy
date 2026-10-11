@@ -44,6 +44,14 @@ export interface AuditEntry {
   metadata: unknown; at: string;
 }
 
+export interface ModelInfo { id: string; label: string; tier: string; note: string }
+export interface ModelConfig {
+  active: string; default: string; is_override: boolean; provider: string; catalog: ModelInfo[];
+}
+export interface TestModelResult {
+  model: string; ok: boolean; latency_ms: number; sample: string; error: string | null;
+}
+
 export interface ErrorEnvelope { error: { code: string; message: string; details?: unknown } }
 
 /** Result of streaming chat: assembled text plus the final `done` metadata when provided. */
