@@ -36,15 +36,7 @@ class IdentityApi {
           auth: AuthMode.none,
           body: {'anon_id': anonId, 'passphrase': passphrase})));
 
-  /// Explicit refresh (same single-flight path as the 401 retry).
-  Future<TokenPair> refresh() async {
-    final cur = await _tokens.readUser();
-    if (cur == null) throw const ApiError('auth_expired', 'Session expired', 401);
-    final j = await _c.postJson('/v1/identity/refresh',
-        auth: AuthMode.none, body: {'refresh_token': cur.refreshToken});
-    final t = TokenPair.tryParse(j);
-    if (t == null) throw const ApiError('bad_response', 'Malformed refresh response', 200);
-    await _tokens.writeUser(t);
-    return t;
-  }
+  /// Explicit refresh; delegates to ApiClient's single-flight refresh so the
+  /// (possibly rotating) refresh token is never spent twice concurrently.
+  Future<TokenPair> refresh() => _c.refreshNow();
 }

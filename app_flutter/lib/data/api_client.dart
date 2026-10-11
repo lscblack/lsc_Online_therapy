@@ -108,13 +108,15 @@ class ApiClient {
     Map<String, String>? headers,
     CancelToken? cancelToken,
   }) async {
+    final used = auth == AuthMode.user ? (await tokens.readUser())?.accessToken : null;
     var res = await _once(method, path, body, form, auth, responseType, headers,
-        cancelToken, auth == AuthMode.user ? (await tokens.readUser())?.accessToken : null);
+        cancelToken, used);
     if (res.statusCode == 401 && auth == AuthMode.user) {
       final cur = await tokens.readUser();
       if (cur != null) {
         await _drain(res);
-        if (await _refresh(cur)) {
+        // Token already rotated by a concurrent refresh: just retry with it.
+        if (cur.accessToken != used || await _refresh(cur)) {
           res = await _once(method, path, body, form, auth, responseType, headers,
               cancelToken, (await tokens.readUser())?.accessToken);
         } else {
@@ -202,6 +204,19 @@ class ApiClient {
       }
     } catch (_) {}
     return ApiError('error', 'Request failed', status);
+  }
+
+  /// Explicit refresh via the shared single-flight path. Returns the new pair;
+  /// throws ApiError('auth_expired') if rejected, other ApiError if transient.
+  Future<TokenPair> refreshNow() async {
+    final cur = await tokens.readUser();
+    if (cur == null) throw const ApiError('auth_expired', 'Session expired', 401);
+    if (!await _refresh(cur)) {
+      throw const ApiError('auth_expired', 'Session expired', 401);
+    }
+    final t = await tokens.readUser();
+    if (t == null) throw const ApiError('auth_expired', 'Session expired', 401);
+    return t;
   }
 
   /// Single-flight refresh. true = new tokens stored; false = definitively

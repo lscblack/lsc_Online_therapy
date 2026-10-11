@@ -51,6 +51,12 @@ void main() {
     });
     expect(p.ageBand, '15_17');
     expect(const ProfileUpdate(nickname: 'Z').toJson(), {'nickname': 'Z'});
+    // untouched fields absent; explicitly cleared fields are JSON null
+    final j = const ProfileUpdate(
+        gender: 'f', clear: {ProfileField.sensitiveContext, ProfileField.nickname}).toJson();
+    expect(j, {'gender': 'f', 'sensitive_context': null, 'nickname': null});
+    expect(j.containsKey('pronouns'), isFalse);
+    expect(const ProfileUpdate().toJson(), isEmpty);
   });
 
   test('VoiceResponse parse', () {

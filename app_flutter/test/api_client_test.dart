@@ -124,4 +124,27 @@ void main() {
     await expectLater(c.getJson('/v1/profile'),
         throwsA(isA<ApiError>().having((e) => e.status, 'status', 502)));
   });
+
+  test('late 401 (token already rotated) retries without another refresh', () async {
+    late MemoryTokenStore st;
+    final (c, a, store) = await setup((r) {
+      if (r.headers['Authorization'] == 'Bearer A1') {
+        // simulate a concurrent refresh finishing while this request was in flight
+        st.writeUser(const TokenPair(accessToken: 'A2', refreshToken: 'R2'));
+        return jsonBody(401, {'error': {'code': 'unauthorized', 'message': 'x'}});
+      }
+      return jsonBody(200, {'ok': 1});
+    });
+    st = store;
+    expect((await c.getJson('/v1/profile'))['ok'], 1);
+    expect(a.requests.any((r) => r.path == '/v1/identity/refresh'), isFalse);
+  });
+
+  test('explicit refreshNow shares the single-flight path', () async {
+    final (c, a, store) = await setup((r) => jsonBody(200, pair('A2', 'R2')));
+    final res = await Future.wait([c.refreshNow(), c.refreshNow()]);
+    expect(res.first.accessToken, 'A2');
+    expect(a.requests.length, 1);
+    expect((await store.readUser())!.refreshToken, 'R2');
+  });
 }

@@ -34,7 +34,20 @@ class Profile {
       );
 }
 
-/// PUT body. Only fields that are set are sent (omitted = untouched on the server).
+/// Nullable profile fields that can be explicitly cleared (sent as JSON null).
+enum ProfileField {
+  nickname('nickname'),
+  gender('gender'),
+  pronouns('pronouns'),
+  tonePref('tone_pref'),
+  sensitiveContext('sensitive_context');
+
+  const ProfileField(this.json);
+  final String json;
+}
+
+/// PUT body. A field that is null and not in [clear] is OMITTED (untouched on the
+/// server); a field in [clear] is sent as an explicit JSON null (server clears it).
 class ProfileUpdate {
   const ProfileUpdate({
     this.nickname,
@@ -44,6 +57,7 @@ class ProfileUpdate {
     this.tonePref,
     this.interests,
     this.sensitiveContext,
+    this.clear = const {},
   });
 
   final String? nickname;
@@ -53,14 +67,22 @@ class ProfileUpdate {
   final String? tonePref;
   final List<String>? interests;
   final String? sensitiveContext;
+  final Set<ProfileField> clear;
 
-  Map<String, Object?> toJson() => {
-        if (nickname != null) 'nickname': nickname,
-        if (ageBand != null) 'age_band': ageBand,
-        if (gender != null) 'gender': gender,
-        if (pronouns != null) 'pronouns': pronouns,
-        if (tonePref != null) 'tone_pref': tonePref,
-        if (interests != null) 'interests': interests,
-        if (sensitiveContext != null) 'sensitive_context': sensitiveContext,
-      };
+  Map<String, Object?> toJson() {
+    final m = <String, Object?>{
+      if (nickname != null) 'nickname': nickname,
+      if (ageBand != null) 'age_band': ageBand,
+      if (gender != null) 'gender': gender,
+      if (pronouns != null) 'pronouns': pronouns,
+      if (tonePref != null) 'tone_pref': tonePref,
+      if (interests != null) 'interests': interests,
+      if (sensitiveContext != null) 'sensitive_context': sensitiveContext,
+    };
+    for (final k in clear) {
+      // An explicit value wins over a clear request for the same field.
+      m.putIfAbsent(k.json, () => null);
+    }
+    return m;
+  }
 }
