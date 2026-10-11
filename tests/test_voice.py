@@ -226,3 +226,26 @@ async def test_accept_language_never_becomes_stt_hint(client, monkeypatch):
     await client.post("/v1/voice/transcribe", headers={**h, "Accept-Language": "en-US"},
                       files=files, data={"language": "rw"})
     assert seen["stt"] == "rw"
+
+
+async def test_transcribe_and_speak_work_without_llm(client, monkeypatch):
+    import app.services.chat as chat_mod
+
+    def boom():
+        raise ValueError("OPENROUTER_API_KEY must be set to use this provider")
+
+    monkeypatch.setattr(chat_mod, "get_llm", boom)
+    h = await _headers(client)
+    r = await client.post("/v1/voice/transcribe", headers=h,
+                          files={"audio": ("clip.webm", b"\x00audio", "audio/webm")})
+    assert r.status_code == 200
+    r = await client.post("/v1/voice/speak", headers=h, json={"text": "Muraho", "language": "rw"})
+    assert r.status_code == 200
+
+
+async def test_chat_and_voice_share_rate_limit_scope():
+    import inspect
+    import app.api.v1.chat as c
+    import app.api.v1.voice as v
+    assert 'rate_limit("conversation"' in inspect.getsource(c)
+    assert 'rate_limit("conversation"' in inspect.getsource(v)

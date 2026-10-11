@@ -237,3 +237,46 @@ async def test_crisis_survives_persistence_failure(session, user, monkeypatch):
     monkeypatch.setattr(svc.repo, "create_conversation", fail)
     r = await svc.respond(user, "I want to kill myself", language="en")
     assert t("crisis_self_harm", "en") in r.answer and r.safety_flags["persisted"] is False
+
+
+async def test_persistence_failure_keeps_real_conversation_id(session, user, monkeypatch):
+    svc = ChatService(session, llm=FakeLLM())
+    first = await svc.respond(user, "hello there", language="en")
+
+    async def fail(*a, **k):
+        raise RuntimeError("db write failed")
+
+    monkeypatch.setattr(svc.repo, "add_message", fail)
+    r = await svc.respond(user, "I want to kill myself", first.conversation_id, language="en")
+    assert r.safety_flags["persisted"] is False
+    assert r.conversation_id == first.conversation_id
+
+
+async def test_llm_resolved_lazily_and_respond_works(session, user, monkeypatch):
+    import app.services.chat as chat_mod
+
+    def boom():
+        raise AssertionError("get_llm must not be called in __init__")
+
+    monkeypatch.setattr(chat_mod, "get_llm", boom)
+    svc = ChatService(session)  # no LLM resolution at construction
+    monkeypatch.setattr(chat_mod, "get_llm", lambda: FakeLLM())
+    r = await svc.respond(user, "I want to kill myself", language="en")
+    assert r.safety_flags["crisis"] is True
+
+
+async def test_provider_config_error_is_503_envelope(client, monkeypatch):
+    import app.services.chat as chat_mod
+    from app.providers.factory import ProviderConfigError
+
+    def boom():
+        raise ProviderConfigError("OPENROUTER_API_KEY must be set to use this provider")
+
+    monkeypatch.setattr(chat_mod, "get_llm", boom)
+    anon = (await client.post("/v1/identity/anon")).json()
+    h = {"Authorization": f"Bearer {anon['access_token']}"}
+    r = await client.post("/v1/chat", json={"message": "hello"}, headers=h)
+    assert r.status_code == 503
+    body = r.json()
+    assert body["error"]["code"] == "service_unavailable"
+    assert "OPENROUTER" not in r.text

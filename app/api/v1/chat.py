@@ -13,7 +13,7 @@ from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.chat import ChatService, ConversationNotFound
 
 router = APIRouter(prefix="/v1/chat", tags=["chat"],
-                   dependencies=[Depends(rate_limit("chat", "rate_limit_chat_per_min", True))])
+                   dependencies=[Depends(rate_limit("conversation", "rate_limit_chat_per_min", True))])
 
 
 def _sse(event: str, data) -> str:

@@ -6,6 +6,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.providers.factory import ProviderConfigError
+
 log = logging.getLogger(__name__)
 
 _CODES = {400: "bad_request", 401: "unauthorized", 403: "forbidden", 404: "not_found",
@@ -35,6 +37,13 @@ def install_error_handlers(app: FastAPI) -> None:
                    for e in exc.errors()]
         return JSONResponse(envelope(422, "validation_error", "Request validation failed",
                                      details), 422)
+
+    @app.exception_handler(ProviderConfigError)
+    async def _provider_config(request: Request, exc: ProviderConfigError):
+        # Log the (secret-free) reason; the client only learns the service is unavailable.
+        log.error("Provider misconfigured on %s %s: %s", request.method, request.url.path, exc)
+        return JSONResponse(envelope(503, "service_unavailable", "Service temporarily unavailable"),
+                            503)
 
     @app.exception_handler(Exception)
     async def _unhandled(request: Request, exc: Exception):

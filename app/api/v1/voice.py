@@ -15,7 +15,7 @@ from app.services.chat import ConversationNotFound
 from app.services.voice import EmptyTranscript, VoiceService
 
 router = APIRouter(prefix="/v1/voice", tags=["voice"],
-                   dependencies=[Depends(rate_limit("voice", "rate_limit_chat_per_min", True))])
+                   dependencies=[Depends(rate_limit("conversation", "rate_limit_chat_per_min", True))])
 MAX_AUDIO_BYTES = 10 * 1024 * 1024
 # STT only uses the filename extension to infer format; if the upload has no filename we derive
 # one from its content-type.
@@ -49,6 +49,7 @@ async def transcribe(audio: UploadFile = File(...), language: str | None = Form(
     return TranscribeResponse(text=tr.text, language=tr.language)
 
 
+# Intentionally unguarded: raw TTS of the USER'S OWN supplied text, not an assistant answer.
 @router.post("/speak")
 async def speak(body: SpeakRequest, user: User = Depends(current_user), hdr_lang: str | None = Depends(accept_language),
                 session: AsyncSession = Depends(get_session)) -> Response:

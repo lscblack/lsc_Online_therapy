@@ -84,8 +84,14 @@ def _chunks(text: str, size: int = 6):
 class ChatService:
     def __init__(self, session: AsyncSession, llm=None) -> None:
         self.session = session
-        self.llm = llm or get_llm()
+        self._llm = llm  # resolved lazily: voice transcribe/speak never need a working LLM
         self.repo = ConversationRepository(session)
+
+    @property
+    def llm(self):
+        if self._llm is None:
+            self._llm = get_llm()
+        return self._llm
 
     async def _generate(self, messages: list[dict]) -> str:
         return "".join([c async for c in self.llm.stream_chat(messages)]).strip()
@@ -156,6 +162,7 @@ class ChatService:
 
         best_effort = triage.is_crisis or flags.get("guard_reason") == "provider_error"
         cid = conv.id if conv else None
+        conv_id_known = cid
         try:
             if conv is None:
                 conv = await self.repo.create_conversation(user, str(mode), lang)
@@ -169,7 +176,8 @@ class ChatService:
             # Never turn a crisis / degraded safety answer into a 500 because of a DB write.
             logger.error("chat persistence failed (%s); returning answer unsaved", type(exc).__name__)
             await self.session.rollback()
-            cid = uuid.uuid4()
+            # Keep the real id when the conversation already existed; only mint one if none did.
+            cid = conv_id_known if conv_id_known is not None else uuid.uuid4()
             flags["persisted"] = False
         return ChatResult(out.answer, out.citations, cid, flags, lang)
 

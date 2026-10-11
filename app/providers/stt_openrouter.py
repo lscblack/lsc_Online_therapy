@@ -1,11 +1,11 @@
 import httpx
 
+from app.providers.base import Transcript
+
 _AUDIO_MIME = {
     "webm": "audio/webm", "ogg": "audio/ogg", "opus": "audio/ogg", "wav": "audio/wav",
     "mp3": "audio/mpeg", "m4a": "audio/mp4", "mp4": "audio/mp4", "flac": "audio/flac",
 }
-
-from app.providers.base import Transcript
 
 
 class OpenRouterWhisperSTT:

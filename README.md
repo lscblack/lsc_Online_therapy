@@ -23,7 +23,7 @@ run once: `docker compose exec api alembic upgrade head`).
   `STT_PROVIDER` / `TTS_PROVIDER` (openrouter|digitalumuganda|fake).
 - Rate limits (per minute, `<=0` disables, `RATE_LIMIT_ENABLED=false` turns off):
   `RATE_LIMIT_AUTH_PER_MIN` (10, per IP: `/v1/identity/recover`, `/v1/admin/login`),
-  `RATE_LIMIT_CHAT_PER_MIN` (30, per identity: chat + voice). In-process only, so limits are
+  `RATE_LIMIT_CHAT_PER_MIN` (30, per identity, one shared budget for chat + voice). In-process only, so limits are
   per worker, not shared; use a gateway/Redis limiter when scaling out.
 
 ### Behind a proxy / gateway (required for correct rate limiting)

@@ -2,14 +2,18 @@ from app.core.config import Settings, get_settings
 from app.providers.base import EmbeddingProvider, LLMProvider, STTProvider, TTSProvider
 
 
+class ProviderConfigError(ValueError):
+    """Provider is misconfigured (missing key/model or unknown provider). Maps to HTTP 503."""
+
+
 def _require(settings: Settings, **fields: str) -> None:
     for env_name, attr in fields.items():
         if not getattr(settings, attr):
-            raise ValueError(f"{env_name} must be set to use this provider")
+            raise ProviderConfigError(f"{env_name} must be set to use this provider")
 
 
 def _unknown(kind: str, name: str):
-    return ValueError(f"Unknown {kind} provider: {name!r}")
+    return ProviderConfigError(f"Unknown {kind} provider: {name!r}")
 
 
 def get_llm(settings: Settings | None = None) -> LLMProvider:
