@@ -254,8 +254,8 @@ async def create_session(rt: Runtime, user: Any, language: str, voice: str | Non
     def on_state() -> None:
         if getattr(pc, "connectionState", None) in ("failed", "closed"):
             t = asyncio.ensure_future(entry.close())
-        _bg.add(t)  # keep a reference so the task cannot be GC'd mid-flight
-        t.add_done_callback(_bg.discard)
+            _bg.add(t)  # keep a reference so the task cannot be GC'd mid-flight
+            t.add_done_callback(_bg.discard)
 
     pc.on("track", on_track)
     pc.on("connectionstatechange", on_state)

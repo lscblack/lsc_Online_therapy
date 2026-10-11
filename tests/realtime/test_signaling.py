@@ -305,3 +305,21 @@ def test_disconnect_closes_session(rt, authed, how):
     assert rt.pcs[0].closed
     assert rt.dbs[0].rolled_back and rt.dbs[0].closed
     assert signaling.registry.get(sid) is None
+
+
+def test_non_terminal_connection_state_is_noop(rt, authed):
+    with TestClient(app) as c:
+        sid = c.post("/v1/live/offer", json=BODY).json()["session_id"]
+        e = signaling.registry.get(sid)
+        pc = rt.pcs[0]
+
+        async def fire():
+            before = len(signaling._bg)
+            for st in ("new", "connecting", "connected"):
+                pc.connectionState = st
+                pc.handlers["connectionstatechange"]()  # must not raise
+            await asyncio.sleep(0.05)
+            assert len(signaling._bg) == before
+            assert e._closing is None
+        c.portal.call(fire)
+        assert not rt.lives[0].closed and signaling.registry.get(sid) is e
