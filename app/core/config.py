@@ -58,6 +58,13 @@ class Settings(BaseSettings):
     turn_secret: str = ""
     turn_ttl: int = 3600  # seconds of validity for ephemeral TURN credentials
 
+    # Realtime voice: LiveSession barge-in. Speech within `grace` of agent speech start is
+    # ignored (echo/onset); `min_speech` of sustained user speech triggers barge-in; a crisis
+    # answer always plays at least `crisis_min_play` before barge-in is honored.
+    realtime_barge_in_grace_ms: int = 300
+    realtime_barge_in_min_speech_ms: int = 60
+    realtime_crisis_min_play_ms: int = 4000
+
 
 @lru_cache
 def get_settings() -> Settings:
