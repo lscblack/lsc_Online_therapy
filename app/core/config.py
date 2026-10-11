@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     embedding_provider: str = "e5"
     stt_provider: str = "openrouter"
     tts_provider: str = "openrouter"
+    # Browser origins allowed by CORS (JSON list in env, e.g. CORS_ORIGINS='["https://app.example"]').
+    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     encryption_key: str = ""
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"

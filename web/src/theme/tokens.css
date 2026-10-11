@@ -1,0 +1,91 @@
+/* Ubuzima design tokens. Flat colours only: no gradients anywhere.
+   Contrast (WCAG AA): text on bg >= 12:1, muted >= 5.5:1, primary-contrast on primary >= 5:1. */
+:root {
+  --color-bg: #fff8f3;
+  --color-surface: #ffffff;
+  --color-surface-2: #fdebe0;
+  --color-border: #e6d3c7;
+  --color-text: #2b2420;
+  --color-text-muted: #6b5b53;
+  --color-primary: #c23b22;          /* warm coral */
+  --color-primary-contrast: #ffffff;
+  --color-accent: #0f766e;           /* teal */
+  --color-accent-contrast: #ffffff;
+  --color-danger: #b42318;
+  --color-focus: #0f766e;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px;
+
+  --font-sans: "Nunito", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.625rem;
+  --text-2xl: 2.125rem;
+  --leading: 1.55;
+
+  --shadow-sm: 0 1px 3px rgba(43, 36, 32, 0.12);
+  --motion-fast: 150ms;
+  --motion-base: 250ms;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --color-bg: #1c1715;
+  --color-surface: #29211e;
+  --color-surface-2: #362b27;
+  --color-border: #4a3c36;
+  --color-text: #f5ede8;
+  --color-text-muted: #cbbdb5;
+  --color-primary: #ff8a6b;
+  --color-primary-contrast: #1c1715;
+  --color-accent: #4fd1c5;
+  --color-accent-contrast: #10201e;
+  --color-danger: #ff8a80;
+  --color-focus: #4fd1c5;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #1c1715;
+    --color-surface: #29211e;
+    --color-surface-2: #362b27;
+    --color-border: #4a3c36;
+    --color-text: #f5ede8;
+    --color-text-muted: #cbbdb5;
+    --color-primary: #ff8a6b;
+    --color-primary-contrast: #1c1715;
+    --color-accent: #4fd1c5;
+    --color-accent-contrast: #10201e;
+    --color-danger: #ff8a80;
+    --color-focus: #4fd1c5;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

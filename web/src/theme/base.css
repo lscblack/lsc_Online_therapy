@@ -1,0 +1,19 @@
+*, *::before, *::after { box-sizing: border-box; }
+h1, h2 { margin: 0; line-height: 1.2; }
+h1 { font-size: var(--text-2xl); color: var(--color-primary); }
+h2 { font-size: var(--text-xl); }
+.page { max-width: 720px; margin: 0 auto; padding: var(--space-4); }
+.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.bar-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.lead { font-size: var(--text-lg); margin-top: var(--space-5); }
+.btn {
+  min-height: 44px; padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill); border: 1px solid var(--color-border);
+  font: inherit; cursor: pointer;
+  background: var(--color-surface); color: var(--color-text);
+  transition: background-color var(--motion-fast);
+}
+.btn:hover { background: var(--color-surface-2); }
+.btn-primary { background: var(--color-primary); color: var(--color-primary-contrast); border-color: transparent; }
+.btn-primary:hover { background: var(--color-primary); opacity: 0.9; }
+:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }

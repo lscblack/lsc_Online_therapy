@@ -3,6 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import admin, chat, health, identity, live, profile, voice
 from app.core.db import get_sessionmaker
@@ -50,6 +51,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 install_error_handlers(app)
+from app.core.config import get_settings as _get_settings  # noqa: E402
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_get_settings().cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Accept-Language"],
+)
 app.include_router(health.router)
 app.include_router(admin.router)
 app.include_router(identity.router)
