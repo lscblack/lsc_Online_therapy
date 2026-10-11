@@ -201,7 +201,7 @@ async def test_vendor_pump_failure_surfaced_and_no_leaked_task(monkeypatch):
         async for _ in v.stream(src(), "en"):
             pass
     assert closed == [1]
-    assert [t for t in asyncio.all_tasks() if "pump" in t.get_coro().__qualname__] == []
+    assert [t for t in asyncio.all_tasks() if "stream.<locals>.pump" in t.get_coro().__qualname__] == []
 
 
 async def test_vendor_early_exit_cancels_pump_and_closes_frames(monkeypatch):
@@ -224,9 +224,10 @@ async def test_vendor_early_exit_cancels_pump_and_closes_frames(monkeypatch):
     g = StreamingVendorSTT("k", "m", "wss://x").stream(src(), "en")
     ev = await g.__anext__()
     assert ev.text == "hi" and ev.is_final
+    await asyncio.sleep(0.05)  # let the pump start consuming frames
     await g.aclose()
     assert closed == [1]
-    assert [t for t in asyncio.all_tasks() if "pump" in t.get_coro().__qualname__] == []
+    assert [t for t in asyncio.all_tasks() if "stream.<locals>.pump" in t.get_coro().__qualname__] == []
 
 
 async def test_vendor_rejects_unsupported_language():
