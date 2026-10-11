@@ -58,6 +58,23 @@ const en = {
   obSaving: "Saving...",
   obError: "We could not save that. Please check your connection and try again.",
   obStepOf: "Step",
+  chatThreadLabel: "Conversation",
+  chatComposerLabel: "Type your message",
+  chatPlaceholder: "Ask me anything about your health...",
+  chatWelcomeNamed: "Muraho, {name}! What is on your mind today?",
+  chatWelcome: "Muraho! What is on your mind today?",
+  chatWelcomeHint: "Ask a health question in your own words. I'm here to help, and nothing is too small.",
+  chatTyping: "Ubuzima is typing",
+  chatYou: "You",
+  chatBuddy: "Ubuzima",
+  chatSource: "Source",
+  chatSourcesLabel: "Sources",
+  chatReferralTitle: "A doctor or health worker can help best",
+  chatReferralBody: "I don't have verified information on this, so I won't guess. Please talk to a doctor, nurse or your nearest health centre.",
+  chatCrisisTitle: "You matter, and support is available",
+  chatCrisisNext: "You don't have to face this alone. Please reach out to someone you trust, or a health worker or counsellor near you, today.",
+  chatError: "Sorry, I couldn't get a reply just now. Your message is safe.",
+  chatRetry: "Try again",
 } as const;
 
 export type Dict = Record<keyof typeof en, string>;
