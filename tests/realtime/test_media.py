@@ -116,13 +116,24 @@ async def test_tts_track_cancel_then_play_again():
 
 async def test_cancel_drops_queued_second_utterance():
     t = make_track()
-    t.play(pcm(1, 3))
-    t.play(pcm(2, 3))
+    gate = asyncio.Event()
+
+    async def blocked_first():
+        yield pcm(1, 1)
+        await gate.wait()  # feeder parked on utterance #1
+        yield pcm(1, 1)
+
+    t.play(blocked_first())
+    t.play(pcm(2, 3))  # sits in _pending behind #1
     await settle()
-    await t.recv()
+    assert len(t._pending) == 1
+    assert (await t.recv()).pcm == pcm(1)
     t.cancel()
+    assert not t.is_playing
+    assert (await t.recv()).pcm == bytes(FRAME48)
+    gate.set()
     await settle()
-    outs = [(await t.recv()).pcm for _ in range(8)]
+    outs = [(await t.recv()).pcm for _ in range(6)]
     assert all(o == bytes(FRAME48) for o in outs)
     assert not t.is_playing
 
