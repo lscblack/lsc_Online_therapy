@@ -1,0 +1,19 @@
+.voice { flex: none; border-top: 1px solid var(--color-border); padding: var(--space-3) 0; max-height: 60dvh; overflow-y: auto; }
+.voice-result { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-3); }
+.voice-audio { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.voice-chip { min-height: 44px; padding: var(--space-2) var(--space-4); font: inherit; font-weight: 600; cursor: pointer; border-radius: var(--radius-pill); border: 1px solid var(--color-primary); background: var(--color-surface); color: var(--color-primary); }
+.voice-chip[aria-pressed="true"] { background: var(--color-surface-2); }
+.voice-controls { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); text-align: center; }
+.rec-btn { position: relative; width: 72px; height: 72px; border-radius: var(--radius-pill); border: 0; cursor: pointer; display: grid; place-items: center; background: var(--color-primary); color: var(--color-primary-contrast); }
+.rec-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.rec-btn.is-recording::after { content: ""; position: absolute; inset: -6px; border-radius: inherit; border: 3px solid var(--color-primary); animation: rec-pulse 1.4s ease-out infinite; }
+.rec-btn:focus-visible, .voice-chip:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; }
+.voice-status { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.voice-problem { margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface-2); border: 1px solid var(--color-border); color: var(--color-text); max-width: 440px; overflow-wrap: anywhere; }
+.voice-live { min-height: 44px; max-width: 100%; padding: var(--space-2) var(--space-4); font: inherit; border-radius: var(--radius-pill); border: 1px dashed var(--color-border); background: transparent; color: var(--color-text-muted); cursor: not-allowed; }
+.voice-soon { font-weight: 600; }
+.voice-toggle { min-height: 44px; padding: var(--space-2) var(--space-4); font: inherit; font-weight: 600; cursor: pointer; border-radius: var(--radius-pill); border: 1px solid var(--color-primary); background: var(--color-surface); color: var(--color-primary); }
+.voice-toggle[aria-pressed="true"] { background: var(--color-surface-2); }
+.voice-toggle:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+@keyframes rec-pulse { from { transform: scale(0.9); opacity: 0.8; } to { transform: scale(1.25); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rec-btn.is-recording::after { animation: none; opacity: 0.6; } }

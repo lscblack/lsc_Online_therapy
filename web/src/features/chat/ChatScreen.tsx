@@ -8,8 +8,10 @@ import { useT } from "../../i18n/useT";
 import type { ChatResponse } from "../../api/types";
 import Composer from "./Composer";
 import MessageList from "./MessageList";
+import VoicePanel from "../voice/VoicePanel";
 import type { ChatMessage } from "./types";
 import "./chat.css";
+import "../voice/voice.css";
 
 let seq = 0;
 const nextId = () => `m${++seq}`;
@@ -20,6 +22,7 @@ export default function ChatScreen() {
   const { t, lang } = useT();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [busy, setBusy] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const [nickname, setNickname] = useState<string | null>(null);
   const convId = useRef<string | null>(null);
   const alive = useRef(true);
@@ -71,9 +74,14 @@ export default function ChatScreen() {
     <main className="chat">
       <header className="bar chat-bar">
         <h1>{t("appName")}</h1>
-        <div className="bar-actions"><ThemeToggle /><LangToggle /></div>
+        <div className="bar-actions">
+          <button type="button" className="voice-toggle" aria-pressed={voiceOpen} onClick={() => setVoiceOpen((v) => !v)}>
+            {voiceOpen ? t("voiceClose") : t("voiceOpen")}
+          </button>
+          <ThemeToggle /><LangToggle /></div>
       </header>
       <MessageList messages={messages} nickname={nickname} onRetry={onRetry} busy={busy} />
+      {voiceOpen && <VoicePanel conversationId={convId.current} onConversationId={(id) => { convId.current = id; }} />}
       <Composer disabled={busy} onSend={onSend} />
     </main>
   );

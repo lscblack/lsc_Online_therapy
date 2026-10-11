@@ -75,6 +75,23 @@ const en = {
   chatCrisisNext: "You don't have to face this alone. Please reach out to someone you trust, or a health worker or counsellor near you, today.",
   chatError: "Sorry, I couldn't get a reply just now. Your message is safe.",
   chatRetry: "Try again",
+  voiceOpen: "Talk instead",
+  voiceClose: "Close voice",
+  voicePanelLabel: "Voice conversation",
+  voiceStart: "Start recording",
+  voiceStop: "Stop recording",
+  voiceIdleHint: "Tap the mic, speak, then tap again when you are done.",
+  voiceRecording: "Recording... tap to stop",
+  voiceProcessing: "Listening to what you said...",
+  voiceDenied: "I can't use your microphone. You can allow it in your browser settings, or just keep typing below.",
+  voiceUnsupported: "Voice isn't available on this device or browser. You can keep typing below.",
+  voiceError: "Sorry, I couldn't get a voice reply just now. Please try again, or type your message.",
+  voiceReplay: "Replay reply",
+  voicePlay: "Play reply",
+  voiceMute: "Mute reply",
+  voiceUnmute: "Unmute reply",
+  voiceLive: "Live mode (real-time, interrupt me)",
+  voiceLiveSoon: "coming soon",
 } as const;
 
 export type Dict = Record<keyof typeof en, string>;
