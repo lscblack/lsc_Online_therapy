@@ -7,12 +7,19 @@ from app.providers.base import ProviderError
 
 
 class OpenRouterLLM:
-    def __init__(self, api_key: str, model: str, base_url: str = "https://openrouter.ai/api/v1"):
+    def __init__(self, api_key: str, model: str, base_url: str = "https://openrouter.ai/api/v1",
+                 max_tokens: int = 1024):
         if not api_key or not model:
             raise ValueError("OpenRouterLLM requires non-empty api_key and model")
         self._key, self._model, self._base = api_key, model, base_url.rstrip("/")
+        self._max_tokens = max_tokens
 
     async def stream_chat(self, messages: list[dict], **opts) -> AsyncIterator[str]:
+        # Always cap max_tokens: OpenRouter rejects (402) a request whose worst-case output
+        # (the model's full context when uncapped) exceeds the key's affordable balance,
+        # even when the actual answer is tiny. Callers may override via opts.
+        if self._max_tokens and "max_tokens" not in opts:
+            opts = {"max_tokens": self._max_tokens, **opts}
         body = {"model": self._model, "messages": messages, **opts, "stream": True}
         headers = {"Authorization": f"Bearer {self._key}"}
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, read=120.0)) as client:

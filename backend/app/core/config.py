@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     stt_model: str = "openai/whisper-1"
     tts_model: str = "openai/tts-1"
+    # Default cap on generated tokens per LLM reply. Required by OpenRouter credit checks:
+    # with no cap it assumes the model's max context (e.g. 65536) and rejects the request as
+    # unaffordable even when a normal-length answer is well within balance. Per-call opts override.
+    llm_max_tokens: int = 1024
     # Provider selectors: llm/stt/tts = fake|openrouter|digitalumuganda(stt/tts); embedding = fake|e5
     llm_provider: str = "openrouter"
     embedding_provider: str = "e5"
@@ -22,6 +26,10 @@ class Settings(BaseSettings):
     # Browser origins allowed by CORS (JSON list in env, e.g. CORS_ORIGINS='["https://app.example"]').
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     encryption_key: str = ""
+    # Optional first-admin bootstrap, applied once on startup if the account does not exist.
+    # Leave empty to disable (the CLI `create_admin` is the alternative). Set both to enable.
+    default_admin_email: str = ""
+    default_admin_password: str = ""
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
     access_token_ttl_min: int = 15

@@ -7,7 +7,7 @@ Ubuzima backend over HTTP/SSE.
 ## Setup
 
 ```sh
-cd app_flutter
+cd mobile
 flutter pub get
 ```
 
