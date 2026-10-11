@@ -44,6 +44,16 @@
   --motion-fast: 150ms;
   --motion-base: 250ms;
   --motion-slow: 450ms;
+
+  /* Glassmorphism: frosted translucent surfaces over soft green light. */
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-blur: 16px;
+  --glass-shadow: 0 8px 30px rgba(16, 60, 44, 0.12);
+  --blob-1: rgba(17, 122, 83, 0.28);
+  --blob-2: rgba(15, 143, 136, 0.22);
+  --blob-3: rgba(100, 210, 160, 0.26);
   color-scheme: light;
 }
 
@@ -67,6 +77,13 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
   --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.6);
+  --glass-bg: rgba(18, 38, 30, 0.55);
+  --glass-bg-strong: rgba(18, 38, 30, 0.72);
+  --glass-border: rgba(120, 200, 165, 0.18);
+  --glass-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --blob-1: rgba(17, 122, 83, 0.40);
+  --blob-2: rgba(15, 143, 136, 0.34);
+  --blob-3: rgba(69, 207, 159, 0.22);
   color-scheme: dark;
 }
 
@@ -91,6 +108,13 @@
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
     --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
     --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.6);
+    --glass-bg: rgba(18, 38, 30, 0.55);
+    --glass-bg-strong: rgba(18, 38, 30, 0.72);
+    --glass-border: rgba(120, 200, 165, 0.18);
+    --glass-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    --blob-1: rgba(17, 122, 83, 0.40);
+    --blob-2: rgba(15, 143, 136, 0.34);
+    --blob-3: rgba(69, 207, 159, 0.22);
     color-scheme: dark;
   }
 }
