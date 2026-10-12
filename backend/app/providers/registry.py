@@ -12,9 +12,10 @@ from app.providers.openai_compat import OpenAICompatLLM
 PROVIDERS: dict[str, dict] = {
     "ollama": {
         "label": "Ollama (local)", "base_url_attr": "ollama_base_url", "key_attr": None,
-        "local": True, "tier": "local",
-        "note": "Models running on your own machine — private, free, no rate limits.",
-        "models": ["llama3:latest", "phi3:mini", "qwen2.5:1.5b"],
+        "local": True, "tier": "local", "timeout": 600.0,
+        "note": "Models on your own machine — private, free, no rate limits. On CPU, pick a SMALL "
+                "model (qwen2.5:1.5b / phi3:mini); large models like llama3 can be very slow.",
+        "models": ["qwen2.5:1.5b", "phi3:mini", "llama3:latest"],
     },
     "requesty": {
         "label": "Requesty", "base_url": "https://router.requesty.ai/v1", "key_attr": "requesty_api_key",
@@ -90,9 +91,11 @@ def provider_summaries(settings: Settings) -> list[dict]:
 def build_llm(settings: Settings, provider: str, model: str, *, max_tokens: int) -> OpenAICompatLLM:
     if provider not in PROVIDERS:
         raise ValueError(f"Unknown provider: {provider!r}")
+    d = PROVIDERS[provider]
     return OpenAICompatLLM(
         _base_url(settings, provider), _key(settings, provider), model,
-        max_tokens=max_tokens, extra_headers=PROVIDERS[provider].get("extra_headers"))
+        max_tokens=max_tokens, extra_headers=d.get("extra_headers"),
+        timeout=d.get("timeout", 120.0))
 
 
 async def list_models(settings: Settings, provider: str) -> list[str]:
