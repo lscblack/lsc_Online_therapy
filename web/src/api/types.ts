@@ -37,6 +37,7 @@ export interface Document {
   topic_tags: string[]; status: DocStatus; review_status: ReviewStatus; review_notes: string | null;
   version: number; checksum: string | null; created_at: string; indexed_at: string | null;
 }
+export interface Chunk { chunk_index: number; content: string; token_count: number; language: string | null }
 export type UserRole = "user" | "reviewer" | "admin";
 export interface User {
   id: string; email: string | null; role: UserRole; is_upgraded: boolean; locale: string;

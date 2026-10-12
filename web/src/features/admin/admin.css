@@ -163,3 +163,30 @@
 .modal { background: var(--color-surface); color: var(--color-text); border-radius: var(--radius-lg); padding: var(--space-5); width: min(440px, 100%); max-height: 100%; overflow-y: auto; box-shadow: var(--shadow-lg); }
 .modal h3 { margin-top: 0; overflow-wrap: anywhere; }
 .modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; }
+
+/* Drag & drop upload */
+.dropzone { display: grid; place-items: center; gap: var(--space-2); text-align: center;
+  padding: var(--space-6); margin-bottom: var(--space-4); cursor: pointer;
+  border: 2px dashed var(--color-border); border-radius: var(--radius-lg);
+  background: var(--color-surface-2); color: var(--color-primary);
+  transition: border-color var(--motion-fast), background var(--motion-fast); }
+.dropzone:hover, .dropzone.is-drag { border-color: var(--color-primary); background: var(--color-primary-soft); }
+.dropzone.has-file { border-style: solid; }
+.dropzone-hint, .dropzone-file { display: grid; gap: 2px; }
+.dropzone-hint strong, .dropzone-file strong { color: var(--color-text); }
+.up-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+@media (max-width: 480px) { .up-row { grid-template-columns: 1fr; } }
+
+/* Document overview modal */
+.docview { display: grid; gap: var(--space-3); }
+.docview-meta { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.docview-props { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2) var(--space-4); margin: 0; }
+.docview-props div { display: flex; justify-content: space-between; gap: var(--space-3); border-bottom: 1px solid var(--color-border); padding-bottom: var(--space-1); }
+.docview-props dt { color: var(--color-text-muted); font-size: var(--text-sm); margin: 0; }
+.docview-props dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.docview-notes { background: var(--color-surface-2); border-radius: var(--radius-md); padding: var(--space-3); margin: 0; }
+.docview-h { margin: var(--space-2) 0 0; }
+.docview-chunks { display: grid; gap: var(--space-2); max-height: 42vh; overflow-y: auto; }
+.docview-chunk { background: var(--color-surface-2); border-radius: var(--radius-md); padding: var(--space-3); }
+.docview-chunk-h { font-size: var(--text-xs); margin-bottom: var(--space-1); }
+.docview-chunk p { margin: 0; white-space: pre-wrap; }

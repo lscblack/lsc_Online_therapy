@@ -23,6 +23,15 @@ class DocumentOut(BaseModel):
     indexed_at: datetime | None
 
 
+class ChunkOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    chunk_index: int
+    content: str
+    token_count: int
+    language: str | None
+
+
 class ReviewIn(BaseModel):
     status: ReviewStatus
     notes: str | None = None

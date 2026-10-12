@@ -68,6 +68,13 @@ class AdminService:
             raise LookupError(f"document {document_id} not found")
         return doc
 
+    async def get_document_chunks(self, document_id: uuid.UUID) -> builtins.list:
+        """The extracted text chunks for a document, so a reviewer can read what the assistant
+        will actually retrieve. Raises LookupError if the document does not exist."""
+        if await self.docs.get(document_id) is None:
+            raise LookupError(f"document {document_id} not found")
+        return await self.docs.list_chunks(document_id)
+
     async def review_document(self, actor: User, document_id: uuid.UUID, status: ReviewStatus,
                               notes: str | None = None) -> Document:
         doc = await self.ingestion.set_review(document_id, status, actor.id, notes)

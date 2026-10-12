@@ -324,3 +324,17 @@ async def test_provider_models_lists_curated(client, admin):
     assert r.status_code == 200 and r.json()["provider"] == "ollama"
     assert isinstance(r.json()["models"], list)
     assert (await client.get("/v1/admin/models/nope", headers=_h(admin))).status_code == 404
+
+
+async def test_document_chunks_overview(client, admin):
+    r = await _upload(client, _h(admin))
+    doc_id = r.json()["id"]
+    c = await client.get(f"/v1/admin/documents/{doc_id}/chunks", headers=_h(admin))
+    assert c.status_code == 200
+    rows = c.json()
+    assert isinstance(rows, list)
+    if rows:
+        assert "content" in rows[0] and "chunk_index" in rows[0]
+    assert (await client.get(f"/v1/admin/documents/{uuid.uuid4()}/chunks", headers=_h(admin))).status_code == 404
+    # unauthenticated is rejected
+    assert (await client.get(f"/v1/admin/documents/{doc_id}/chunks")).status_code == 401

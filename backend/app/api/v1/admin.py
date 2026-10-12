@@ -21,6 +21,7 @@ from app.schemas.admin import (
     TestModelOut,
     UserOut,
 )
+from app.schemas.document import ChunkOut
 from app.schemas.identity import TokenPair
 from app.services.admin import AdminService
 from app.services.identity import IdentityService, InvalidCredentials
@@ -83,6 +84,15 @@ async def get_document(document_id: uuid.UUID, user: User = Depends(_staff),
                        session: AsyncSession = Depends(get_session)):
     try:
         return await AdminService(session).get_document(document_id)
+    except LookupError as e:
+        raise _404("Document") from e
+
+
+@router.get("/documents/{document_id}/chunks", response_model=list[ChunkOut])
+async def document_chunks(document_id: uuid.UUID, user: User = Depends(_staff),
+                          session: AsyncSession = Depends(get_session)):
+    try:
+        return await AdminService(session).get_document_chunks(document_id)
     except LookupError as e:
         raise _404("Document") from e
 

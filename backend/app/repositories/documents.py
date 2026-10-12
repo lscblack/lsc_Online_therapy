@@ -35,6 +35,12 @@ class DocumentRepository:
         res = await self.session.execute(stmt.limit(limit).offset(offset))
         return list(res.scalars())
 
+    async def list_chunks(self, document_id: uuid.UUID, limit: int = 200) -> builtins.list[DocumentChunk]:
+        stmt = (select(DocumentChunk).where(DocumentChunk.document_id == document_id)
+                .order_by(DocumentChunk.chunk_index).limit(limit))
+        res = await self.session.execute(stmt)
+        return list(res.scalars())
+
     async def add_chunks(self, document_id: uuid.UUID, rows: builtins.list[dict]) -> builtins.list[DocumentChunk]:
         """rows: dicts with chunk_index, content, token_count, language, meta, embedding."""
         chunks = [DocumentChunk(document_id=document_id, **r) for r in rows]

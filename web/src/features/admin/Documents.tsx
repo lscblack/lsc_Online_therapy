@@ -4,6 +4,7 @@ import type { Document } from "../../api/types";
 import { useAuth } from "../../auth/useAuth";
 import { useT, type TKey } from "../../i18n/useT";
 import ConfirmDialog from "./ConfirmDialog";
+import DocumentDetail from "./DocumentDetail";
 import UploadDialog from "./UploadDialog";
 import { useAdminList } from "./useAdminList";
 
@@ -21,6 +22,7 @@ export default function Documents({ canDelete }: { canDelete: boolean }) {
   const { items, loading, err, refresh, run, fail } = useAdminList<Document>(load);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<Document | null>(null);
+  const [viewing, setViewing] = useState<Document | null>(null);
 
   return (
     <section className="panel" aria-label={t("adminDocuments")}>
@@ -48,6 +50,7 @@ export default function Documents({ canDelete }: { canDelete: boolean }) {
                   <td><span className={`badge badge-${d.status}`}>{t(STATUS[d.status] ?? "adminStatusUploaded")}</span></td>
                   <td><span className={`badge badge-${d.review_status}`}>{t(REVIEW[d.review_status] ?? "adminReviewPending")}</span></td>
                   <td className="admin-actions">
+                    <button type="button" className="btn" aria-label={`${t("dvView")}: ${d.title}`} onClick={() => setViewing(d)}>{t("dvView")}</button>
                     <button type="button" className="btn" aria-label={`${t("adminApprove")}: ${d.title}`} onClick={() => void run(() => admin.reviewDocument(d.id, "approved", undefined))}>{t("adminApprove")}</button>
                     <button type="button" className="btn" aria-label={`${t("adminReject")}: ${d.title}`} onClick={() => void run(() => admin.reviewDocument(d.id, "rejected", undefined))}>{t("adminReject")}</button>
                     <button type="button" className="btn" aria-label={`${t("adminReindex")}: ${d.title}`} onClick={() => void run(() => admin.reindexDocument(d.id))}>{t("adminReindex")}</button>
@@ -65,6 +68,10 @@ export default function Documents({ canDelete }: { canDelete: boolean }) {
           onDone={() => { setUploading(false); void refresh(); }}
           onAuthFail={(e) => { fail(e); if ((e as { status?: number })?.status === 401) adminLogout(); }}
         />
+      )}
+      {viewing && (
+        <DocumentDetail doc={viewing} canReview onClose={() => setViewing(null)}
+          onAction={(fn) => void run(fn)} />
       )}
       {deleting && (
         <ConfirmDialog
