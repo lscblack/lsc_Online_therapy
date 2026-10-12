@@ -204,11 +204,26 @@ async def test_out_of_scope_short_circuit(session, user, monkeypatch):
         raise AssertionError("retrieval must not run")
 
     monkeypatch.setattr(chat_mod, "retrieve", boom)
-    llm = FakeLLM(["out_of_scope"])
+    # Off-topic gets a warm LLM decline (acknowledge + redirect to health) — still no retrieval.
+    llm = FakeLLM(["I'd love to help with that, but I'm only here for your health."])
     r = await ChatService(session, llm=llm).respond(
         user, "can you help me with my algebra homework", language="en")
-    assert r.answer == t("out_of_scope", "en") and r.safety_flags["in_scope"] is False
-    assert len(llm.calls) == 1  # triage only
+    assert "health" in r.answer.lower()
+    assert r.safety_flags["in_scope"] is False
+    assert r.safety_flags["guard_reason"] == "out_of_scope"
+
+
+async def test_out_of_scope_falls_back_to_canned_when_empty(session, user, monkeypatch):
+    import app.services.chat as chat_mod
+
+    async def boom(*a, **k):
+        raise AssertionError("retrieval must not run")
+
+    monkeypatch.setattr(chat_mod, "retrieve", boom)
+    r = await ChatService(session, llm=FakeLLM([])).respond(
+        user, "can you help me with my algebra homework", language="en")
+    assert r.answer == t("out_of_scope", "en")  # canned fallback
+    assert r.safety_flags["in_scope"] is False
 
 
 async def test_greeting_gets_warm_reply_not_referral(session, user, monkeypatch):

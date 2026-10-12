@@ -15,6 +15,20 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Reply in English, using simple, clear words.",
         "rw": "Subiza mu Kinyarwanda cyoroheje kandi gisobanutse (reply in Kinyarwanda).",
     },
+    "offscope_directive": {
+        "en": ("The user asked about something OUTSIDE sexual and reproductive health — the only "
+               "thing you help with. Do NOT answer their off-topic question or give any facts about "
+               "it. Instead reply warmly in 1–2 sentences: briefly and kindly acknowledge what they "
+               "asked by name, say you'd love to help but you're here only to support their health "
+               "and wellbeing, and invite them to ask a health question. Never be dismissive, never "
+               "add citations or a referral."),
+        "rw": ("Umukoresha yabajije ikintu kitari mu buzima bw'imyororokere — ari cyo cyonyine "
+               "ufasha. NTUSUBIZE ikibazo cye kitari mu nsanganyamatsiko, kandi ntutange amakuru "
+               "ayo ari yo yose kuri cyo. Ahubwo subiza mu buryo bushyushye mu nteruro 1–2: wemere "
+               "mu bugwaneza icyo abajije, uvuge ko wifuza kumufasha ariko uri hano gusa gufasha "
+               "ubuzima bwe, hanyuma umutumire kubaza ikibazo cy'ubuzima. Ntukagire uwo usuzugura, "
+               "ntwongere inkomoko cyangwa kohereza ku muganga."),
+    },
     "social_directive": {
         "en": ("The user is greeting you or making small talk (e.g. 'hi', 'how are you', 'thanks'). "
                "Reply like a warm, friendly human in 1–2 short sentences: greet back naturally, "
