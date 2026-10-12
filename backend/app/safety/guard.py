@@ -56,6 +56,15 @@ def _n(text: str) -> str:
     return re.sub(r"[’‘`´]", "'", text.lower())
 
 
+def is_hard_unsafe(text: str) -> bool:
+    """True if the text contains an output that must be REPLACED, never shown (self-treatment
+    dosage for an abortifacient, or a legal-eligibility determination). Used to gate live
+    streaming so unsafe content is never sent to the client."""
+    n = _n(text)
+    return bool((_ABORTIFACIENT_CONTEXT.search(n) and _DOSAGE.search(n))
+                or (_ELIGIBILITY_CONTEXT.search(n) and _LEGAL_DETERMINATION.search(n)))
+
+
 def ground(answer: str, retrieval: "RetrievalResult", language: str | None = None,
            category=None) -> GuardResult:
     """`category` (optional; Triage or string) marks the turn sensitive: ungrounded answers are
