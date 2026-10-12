@@ -26,6 +26,9 @@ export interface VoiceChatResponse extends ChatResponse {
 }
 export interface TranscribeResponse { text: string; language: string | null }
 export interface VoiceChatOptions { conversation_id?: string | null; language?: string | null; voice?: string | null }
+export interface LiveOfferResponse {
+  session_id: string; type: string; sdp: string; ice_servers: RTCIceServer[]; ws_ticket: string;
+}
 
 export type DocStatus = "uploaded" | "processing" | "indexed" | "failed";
 export type ReviewStatus = "pending" | "approved" | "rejected";

@@ -17,3 +17,19 @@
 .voice-toggle:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
 @keyframes rec-pulse { from { transform: scale(0.9); opacity: 0.8; } to { transform: scale(1.25); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .rec-btn.is-recording::after { animation: none; opacity: 0.6; } }
+
+/* Mode toggle + live full-duplex panel */
+.voice-modes { display: flex; gap: var(--space-2); justify-content: center; margin-bottom: var(--space-3); }
+.live-panel { display: flex; flex-direction: column; gap: var(--space-4); }
+.live-turns { display: flex; flex-direction: column; gap: var(--space-2); min-height: 80px; }
+.live-partial { color: var(--color-text-muted); font-style: italic; display: flex; align-items: center; gap: var(--space-2); }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-accent); animation: pulse 1.2s infinite; }
+.live-controls { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
+.live-actions { display: flex; gap: var(--space-2); }
+.live-state { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 600; color: var(--color-text-muted); }
+.live-orb { width: 12px; height: 12px; border-radius: 50%; background: var(--color-border); }
+.live-state-listening .live-orb { background: var(--color-primary); animation: pulse 1.2s infinite; }
+.live-state-thinking .live-orb { background: var(--color-warn); animation: pulse 0.8s infinite; }
+.live-state-speaking .live-orb { background: var(--color-accent); animation: pulse 0.7s infinite; }
+.live-state-connecting .live-orb { background: var(--color-primary); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.4); } }

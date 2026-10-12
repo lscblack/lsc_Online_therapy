@@ -3,6 +3,7 @@ import { voice } from "../../api/voice";
 import type { VoiceChatResponse } from "../../api/types";
 import { useT } from "../../i18n/useT";
 import Bubble from "../chat/Bubble";
+import LivePanel from "./LivePanel";
 import { useReplyAudio } from "./useReplyAudio";
 import "./voice.css";
 
@@ -15,6 +16,7 @@ interface Props { conversationId: string | null; onConversationId: (id: string) 
 
 export default function VoicePanel({ conversationId, onConversationId }: Props) {
   const { t, lang } = useT();
+  const [mode, setMode] = useState<"turn" | "live">("turn");
   const [phase, setPhase] = useState<Phase>("idle");
   const [problem, setProblem] = useState<Problem>(null);
   const [result, setResult] = useState<VoiceChatResponse | null>(null);
@@ -102,6 +104,18 @@ export default function VoicePanel({ conversationId, onConversationId }: Props) 
 
   return (
     <section className="voice" aria-label={t("voicePanelLabel")}>
+      <div className="voice-modes" role="tablist" aria-label={t("voicePanelLabel")}>
+        <button type="button" role="tab" aria-selected={mode === "turn"}
+          className={`btn btn-sm${mode === "turn" ? " btn-primary" : ""}`} onClick={() => setMode("turn")}>
+          {t("voiceModeTurn")}
+        </button>
+        <button type="button" role="tab" aria-selected={mode === "live"}
+          className={`btn btn-sm${mode === "live" ? " btn-primary" : ""}`} onClick={() => setMode("live")}>
+          {t("voiceModeLive")}
+        </button>
+      </div>
+      {mode === "live" && <LivePanel onConversationId={onConversationId} />}
+      {mode === "turn" && <>
       {result && (
         <div className="voice-result" data-testid="voice-result">
           <Bubble message={{ id: "vu", role: "user", text: result.transcript, status: "done" }} onRetry={() => {}} />
@@ -132,10 +146,8 @@ export default function VoicePanel({ conversationId, onConversationId }: Props) 
             {problem === "denied" ? t("voiceDenied") : problem === "unsupported" ? t("voiceUnsupported") : t("voiceError")}
           </p>
         )}
-        <button type="button" className="voice-live" disabled aria-disabled="true">
-          {t("voiceLive")} <span className="voice-soon">{t("voiceLiveSoon")}</span>
-        </button>
       </div>
+      </>}
     </section>
   );
 }

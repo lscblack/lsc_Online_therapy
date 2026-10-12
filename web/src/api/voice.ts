@@ -1,5 +1,5 @@
 import { apiFetch, apiFetchRaw } from "./client";
-import type { TranscribeResponse, VoiceChatOptions, VoiceChatResponse } from "./types";
+import type { LiveOfferResponse, TranscribeResponse, VoiceChatOptions, VoiceChatResponse } from "./types";
 
 export const voice = {
   transcribe(blob: Blob, language?: string): Promise<TranscribeResponse> {
@@ -22,5 +22,14 @@ export const voice = {
     if (opts.language) f.append("language", opts.language);
     if (opts.voice) f.append("voice", opts.voice);
     return apiFetch<VoiceChatResponse>("/v1/voice/chat", { method: "POST", body: f });
+  },
+  /** Live full-duplex voice: exchange a WebRTC offer for an answer + session + WS ticket. */
+  liveOffer(sdp: string, language: string, voiceName?: string): Promise<LiveOfferResponse> {
+    return apiFetch<LiveOfferResponse>("/v1/live/offer", {
+      method: "POST", body: { sdp, type: "offer", language, ...(voiceName ? { voice: voiceName } : {}) },
+    });
+  },
+  liveIce(session_id: string, candidate: RTCIceCandidateInit | null): Promise<void> {
+    return apiFetch<void>("/v1/live/ice", { method: "POST", body: { session_id, candidate } });
   },
 };

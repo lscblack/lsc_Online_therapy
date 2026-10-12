@@ -6,7 +6,7 @@ COPY app ./app
 # CPU-only torch first (sentence-transformers/e5 embeddings); avoids the multi-GB CUDA wheels.
 # Set EMBEDDING_PROVIDER=fake only for smoke tests; real RAG needs e5 (model downloads on first use).
 RUN pip install torch --index-url https://download.pytorch.org/whl/cpu \
-    && pip install .
+    && pip install '.[realtime]'
 COPY alembic ./alembic
 COPY alembic.ini .
 EXPOSE 8000

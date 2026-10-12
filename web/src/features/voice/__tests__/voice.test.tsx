@@ -124,9 +124,12 @@ describe("VoicePanel", () => {
     expect(trackStop).toHaveBeenCalled();
   });
 
-  it("shows a disabled live-mode placeholder", () => {
+  it("offers a live-mode tab that switches to the live panel", () => {
     setup();
-    expect(screen.getByRole("button", { name: (n: string) => n.includes(en.voiceLive) })).toBeDisabled();
+    const liveTab = screen.getByRole("tab", { name: en.voiceModeLive });
+    expect(liveTab).toBeEnabled();
+    fireEvent.click(liveTab);
+    expect(screen.getByRole("button", { name: en.voiceLiveStart })).toBeInTheDocument();
   });
 
   it("shows a friendly error if the voice request fails", async () => {
