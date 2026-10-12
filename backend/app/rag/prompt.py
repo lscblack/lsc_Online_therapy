@@ -17,7 +17,7 @@ def _esc(text: str) -> str:
 
 def build_system_prompt(profile, language: str | None) -> str:
     lang = normalize_language(language)
-    parts = [t("persona", lang), t("language_directive", lang), t("scope", lang),
+    parts = [t("persona", lang), t("style", lang), t("language_directive", lang), t("scope", lang),
              t("grounding", lang), t("data_boundary", lang), t("referral", lang), t("abortion_legal", lang)]
     band = getattr(profile, "age_band", None)
     parts.append(tone_for(band, lang))

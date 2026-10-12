@@ -114,7 +114,20 @@ class ChatService:
                 self._model = s.default_llm_model
 
     async def _generate(self, messages: list[dict]) -> str:
-        return "".join([c async for c in self.llm.stream_chat(messages)]).strip()
+        try:
+            return "".join([c async for c in self.llm.stream_chat(messages)]).strip()
+        except Exception:
+            # The admin-selected model failed (e.g. a broken free model). Fall back once to the
+            # reliable env default so a bad model choice never silently breaks chat.
+            from app.core.config import get_settings
+            s = get_settings()
+            if self._provider and (self._provider, self._model) != (
+                    s.default_llm_provider, s.default_llm_model):
+                logger.warning("active model %s/%s failed; falling back to %s/%s",
+                               self._provider, self._model, s.default_llm_provider, s.default_llm_model)
+                fb = get_llm(provider=s.default_llm_provider, model=s.default_llm_model)
+                return "".join([c async for c in fb.stream_chat(messages)]).strip()
+            raise
 
     async def _referrals(self, triage: Triage) -> list:
         try:
