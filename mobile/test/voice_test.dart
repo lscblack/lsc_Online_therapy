@@ -168,7 +168,7 @@ void main() {
     expect(player.played, [9, 8, 7]);
     expect(find.byKey(const Key('voice-replay')), findsOneWidget);
     expect(find.byKey(const Key('voice-mute')), findsOneWidget);
-    expect(find.byKey(const Key('voice-live-soon')), findsOneWidget);
+    expect(find.byKey(const Key('voice-live')), findsOneWidget);
   });
 
   testWidgets('tts unavailable: no playback, text still shows', (t) async {

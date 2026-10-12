@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/i18n/i18n.dart';
 import '../../state/voice.dart';
 import '../chat/assistant_response.dart';
+import 'live_voice_page.dart';
 
 /// Opens the voice panel as a bottom sheet. State is scoped to the sheet, so
 /// the mic and player are released when it closes.
@@ -109,14 +110,12 @@ class VoicePanel extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               Center(
-                child: Tooltip(
-                  message: t('voice.live'),
-                  child: OutlinedButton.icon(
-                    key: const Key('voice-live-soon'),
-                    onPressed: null,
-                    icon: const Icon(Icons.graphic_eq),
-                    label: Text(t('voice.live')),
-                  ),
+                child: FilledButton.tonalIcon(
+                  key: const Key('voice-live'),
+                  onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(builder: (_) => const LiveVoicePage())),
+                  icon: const Icon(Icons.graphic_eq),
+                  label: Text(t('live.start')),
                 ),
               ),
             ],
