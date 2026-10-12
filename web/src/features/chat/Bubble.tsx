@@ -1,5 +1,6 @@
 import { useT } from "../../i18n/useT";
 import { CitationChips, CrisisPanel, ReferralCallout, isCrisis, needsReferral } from "./Callouts";
+import Markdown from "./Markdown";
 import type { ChatMessage } from "./types";
 
 function Typing() {
@@ -19,7 +20,7 @@ export default function Bubble({ message: m, onRetry }: { message: ChatMessage; 
   const flags = m.meta?.safety_flags;
   const crisis = m.status === "done" && isCrisis(flags);
   const referral = m.status === "done" && !crisis && needsReferral(flags);
-  const text = <p className="bubble-text">{m.text}</p>;
+  const text = <div className="bubble-md"><Markdown text={m.text} /></div>;
   return (
     <div className="row row-buddy">
       <div className="avatar" aria-hidden="true">U</div>

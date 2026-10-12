@@ -218,9 +218,23 @@ async def test_greeting_gets_warm_reply_not_referral(session, user, monkeypatch)
         raise AssertionError("retrieval must not run for a greeting")
 
     monkeypatch.setattr(chat_mod, "retrieve", boom)
-    r = await ChatService(session, llm=FakeLLM(["x"])).respond(user, "hi there!", language="en")
-    assert r.answer == t("greeting_reply", "en")
+    # Small talk is answered by the LLM (varied/human) — no retrieval, no referral.
+    r = await ChatService(session, llm=FakeLLM(["Muraho! ", "I'm good, thanks for asking."]))\
+        .respond(user, "hi, how are you?", language="en")
+    assert r.answer == "Muraho! I'm good, thanks for asking."
     assert r.safety_flags["needs_referral"] is False
+    assert r.safety_flags["category"] == "social"
+
+
+async def test_greeting_falls_back_to_canned_when_llm_empty(session, user, monkeypatch):
+    import app.services.chat as chat_mod
+
+    async def boom(*a, **k):
+        raise AssertionError("retrieval must not run for a greeting")
+
+    monkeypatch.setattr(chat_mod, "retrieve", boom)
+    r = await ChatService(session, llm=FakeLLM([])).respond(user, "muraho", language="en")
+    assert r.answer == t("greeting_reply", "en")  # canned fallback when the model returns nothing
     assert r.safety_flags["category"] == "social"
 
 

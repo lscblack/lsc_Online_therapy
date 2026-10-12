@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/i18n/i18n.dart';
 import '../../data/models/chat.dart';
+import 'markdown_text.dart';
 
 /// Reusable assistant reply: bubble text + citations + calm referral/crisis
 /// callouts + neutral error state. Shared by chat (Task 4) and voice (Task 5).
@@ -64,7 +65,7 @@ class AssistantResponseView extends ConsumerWidget {
             // Keep any partial text visible above the error card.
             if (text.isNotEmpty) ...[
               AssistantBubble(
-                  child: SelectableText(text,
+                  child: MarkdownText(text,
                       style: Theme.of(context)
                           .textTheme
                           .bodyLarge
@@ -80,7 +81,7 @@ class AssistantResponseView extends ConsumerWidget {
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SelectableText(text,
+                            MarkdownText(text,
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodyLarge

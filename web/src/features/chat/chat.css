@@ -41,3 +41,10 @@
   .row { animation: none; }
   .typing span { animation: none; opacity: 0.8; }
 }
+
+/* Rendered markdown in buddy answers */
+.bubble-md { display: flex; flex-direction: column; gap: var(--space-2); }
+.bubble-md > .bubble-text { margin: 0; }
+.bubble-md .md-list { margin: 0; padding-left: 1.25em; display: flex; flex-direction: column; gap: 4px; }
+.bubble-md .md-list li { line-height: var(--leading); }
+.bubble-md strong { font-weight: 700; }
