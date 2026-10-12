@@ -99,7 +99,7 @@ describe("Admin panel", () => {
     await screen.findByText("Sleep guide");
     api.reviewDocument.mockResolvedValue(doc());
     api.reindexDocument.mockResolvedValue(doc());
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en.adminApprove}`) }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en.adminApprove}: `) }));
     await waitFor(() => expect(api.reviewDocument).toHaveBeenCalledWith("d1", "approved", undefined));
     fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en.adminReindex}`) }));
     await waitFor(() => expect(api.reindexDocument).toHaveBeenCalledWith("d1"));
@@ -124,7 +124,7 @@ describe("Admin panel", () => {
     expect(screen.queryByRole("button", { name: new RegExp(`^${en.adminDelete}`) })).toBeNull();
     expect(screen.queryByRole("button", { name: en.adminUsers })).toBeNull();
     expect(screen.queryByRole("button", { name: en.adminAudit })).toBeNull();
-    expect(screen.getByRole("button", { name: new RegExp(`^${en.adminApprove}`) })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: new RegExp(`^${en.adminApprove}: `) })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: new RegExp(`^${en.adminReindex}`) })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: en.adminUpload })).toBeInTheDocument();
   });
@@ -148,7 +148,7 @@ describe("Admin panel", () => {
     await loginAs("admin");
     api.reviewDocument.mockRejectedValue(new ApiError("forbidden", "x", 403));
     await screen.findByText("Sleep guide");
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en.adminReject}`) }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en.adminReject}: `) }));
     expect(await screen.findByRole("alert")).toHaveTextContent(en.adminForbidden);
   });
 });
