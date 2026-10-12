@@ -29,7 +29,9 @@ export default function LivePanel({ onConversationId }: { onConversationId: (id:
 
   return (
     <section className="voice live-panel" aria-label={t("voicePanelLabel")}>
-      <audio ref={audioRef} autoPlay hidden />
+      {/* Mic streams to the backend over WebRTC; the answer is spoken by the browser's built-in
+          TTS (free, no paid key), so the backend audio track is muted to avoid double audio. */}
+      <audio ref={audioRef} autoPlay hidden muted />
 
       <div className="live-turns" data-testid="live-turns">
         {live.turns.map((tn, i) => (

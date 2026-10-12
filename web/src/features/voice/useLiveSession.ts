@@ -16,6 +16,21 @@ function wsUrl(path: string): string {
   return `${base}${path}`;
 }
 
+/** Speak an answer with the browser's built-in TTS — free, offline, no paid key. */
+function speak(text: string, lang: string) {
+  try {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    synth.cancel();
+    const clean = text.replace(/\[S\d+\]/g, "").replace(/\*\*/g, "").replace(/^[*\-•]\s+/gm, "");
+    if (!clean.trim()) return;
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = lang === "rw" ? "rw-RW" : "en-US";
+    synth.speak(u);
+  } catch { /* ignore */ }
+}
+function cancelSpeech() { try { window.speechSynthesis?.cancel(); } catch { /* ignore */ } }
+
 /** Full-duplex live voice over WebRTC: streams mic to the backend, plays the agent's audio track,
  *  and renders live transcripts/answers from the control WebSocket. Supports barge-in. */
 export function useLiveSession(language: string, audioEl: () => HTMLAudioElement | null) {
@@ -32,6 +47,7 @@ export function useLiveSession(language: string, audioEl: () => HTMLAudioElement
 
   const cleanup = useCallback(() => {
     active.current = false;
+    cancelSpeech();
     try { ws.current?.close(); } catch { /* ignore */ }
     ws.current = null;
     try { pc.current?.getSenders().forEach((s) => s.track?.stop()); } catch { /* ignore */ }
@@ -56,15 +72,21 @@ export function useLiveSession(language: string, audioEl: () => HTMLAudioElement
         setPartial("");
         if (ev.text) setTurns((t) => [...t, { role: "user", text: String(ev.text) }]);
         break;
-      case "answer":
-        setTurns((t) => [...t, { role: "assistant", text: String(ev.text ?? ""),
+      case "answer": {
+        const ans = String(ev.text ?? "");
+        setTurns((t) => [...t, { role: "assistant", text: ans,
           meta: { language: String(ev.language ?? language), conversation_id: String(ev.conversation_id ?? "") } as Partial<VoiceChatResponse> }]);
+        speak(ans, String(ev.language ?? language));  // browser TTS — free, no paid key needed
         break;
+      }
       case "citations":
         setTurns((t) => attachToLastAssistant(t, { citations: (ev.citations as never) }));
         break;
       case "safety_flags":
         setTurns((t) => attachToLastAssistant(t, { safety_flags: (ev.safety_flags as never) }));
+        break;
+      case "barge_in":
+        cancelSpeech();  // user interrupted — stop speaking at once
         break;
       case "error":
         setError(String(ev.code ?? "error"));
@@ -111,6 +133,7 @@ export function useLiveSession(language: string, audioEl: () => HTMLAudioElement
   }, [language, audioEl, handleEvent, cleanup]);
 
   const interrupt = useCallback(() => {
+    cancelSpeech();
     try { ws.current?.send(JSON.stringify({ type: "barge_in" })); } catch { /* ignore */ }
   }, []);
 
