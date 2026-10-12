@@ -67,6 +67,18 @@ class ApiClient {
     throw ApiError('bad_response', 'Server returned an unexpected response', res.statusCode ?? 0);
   }
 
+  /// GET a JSON array (e.g. /v1/facilities). Returns [] for an empty body.
+  Future<List<Object?>> getJsonList(String path, {AuthMode auth = AuthMode.user}) async {
+    final res = await send('GET', path, auth: auth, responseType: ResponseType.bytes);
+    final text = _text(res.data);
+    if (text.isEmpty) return const [];
+    try {
+      final j = jsonDecode(text);
+      if (j is List) return j;
+    } catch (_) {}
+    throw ApiError('bad_response', 'Server returned an unexpected response', res.statusCode ?? 0);
+  }
+
   Future<Map<String, Object?>> postForm(String path, FormBuilder form) =>
       _json('POST', path, form: form);
 

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import admin, chat, health, identity, live, profile, voice
+from app.api.v1 import admin, chat, facilities, health, identity, live, profile, voice
 from app.core.db import get_sessionmaker
 from app.core.errors import install_error_handlers
 from app.safety.referrals import seed_referrals
@@ -22,6 +22,18 @@ async def seed_referrals_on_startup() -> int:
         log.warning("Referral seeding skipped (%s); if the schema is missing run "
                     "`alembic upgrade head`", type(e).__name__)
         log.debug("Referral seeding error detail: %s", e)
+        return 0
+
+
+async def seed_facilities_on_startup() -> int:
+    """Idempotent seed of the starter health-facility dataset; never blocks startup."""
+    try:
+        from app.services.facilities import FacilityService
+        async with get_sessionmaker()() as session:
+            return await FacilityService(session).seed()
+    except Exception as e:  # noqa: BLE001
+        log.warning("Facility seeding skipped (%s); if the schema is missing run "
+                    "`alembic upgrade head`", type(e).__name__)
         return 0
 
 
@@ -65,6 +77,7 @@ async def bootstrap_default_admin_on_startup() -> bool:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await seed_referrals_on_startup()
+    await seed_facilities_on_startup()
     await bootstrap_default_admin_on_startup()
     from app.core.config import get_settings
     from app.realtime import reaper, signaling
@@ -105,3 +118,4 @@ app.include_router(profile.router)
 app.include_router(chat.router)
 app.include_router(voice.router)
 app.include_router(live.router)
+app.include_router(facilities.router)

@@ -16,10 +16,12 @@ class Facility(Base):
 
     id: Mapped[uuid.UUID] = uuid_pk()
     name: Mapped[str] = mapped_column(String(255))
-    type: Mapped[str] = mapped_column(String(64))
+    type: Mapped[str] = mapped_column(String(64))  # hospital | clinic | health_center | pharmacy
     lat: Mapped[float | None] = mapped_column(Float)
     lng: Mapped[float | None] = mapped_column(Float)
     district: Mapped[str | None] = mapped_column(String(128), index=True)
+    phone: Mapped[str | None] = mapped_column(String(64))
+    address: Mapped[str | None] = mapped_column(String(255))
     services: Mapped[Any] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
     hours: Mapped[str | None] = mapped_column(String(255))
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

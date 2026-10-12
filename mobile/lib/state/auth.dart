@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/api_client.dart';
 import '../data/endpoints/chat.dart';
+import '../data/endpoints/facilities.dart';
 import '../data/endpoints/identity.dart';
 import '../data/endpoints/profile.dart';
 import '../data/endpoints/voice.dart';
@@ -23,6 +24,8 @@ final chatApiProvider =
     Provider<ChatApi>((ref) => ChatApi(ref.watch(apiClientProvider)));
 final voiceApiProvider =
     Provider<VoiceApi>((ref) => VoiceApi(ref.watch(apiClientProvider)));
+final facilitiesApiProvider =
+    Provider<FacilitiesApi>((ref) => FacilitiesApi(ref.watch(apiClientProvider)));
 
 class AuthState {
   const AuthState({this.ready = false, this.anonId});
