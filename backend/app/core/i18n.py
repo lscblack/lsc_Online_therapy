@@ -182,6 +182,18 @@ STRINGS: dict[str, dict[str, str]] = {
                "iki. Ku masomo cyangwa ibindi, baza mwarimu cyangwa umuntu wo ku ishuri. "
                "Niba ufite ikibazo cy'ubuzima, nishimira kugufasha."),
     },
+    "greeting_reply": {
+        "en": ("Muraho! I'm Ubuzima, your friendly health buddy. I'm here to talk about your health "
+               "and wellbeing — anything on your mind, big or small. How can I help you today?"),
+        "rw": ("Muraho! Ndi Ubuzima, inshuti yawe mu by'ubuzima. Ndi hano kuganira ku buzima bwawe — "
+               "ikigutera impungenge cyose, kinini cyangwa gito. Nagufasha nte uyu munsi?"),
+    },
+    "greeting_reply_named": {
+        "en": ("Muraho, {name}! Good to see you. I'm here whenever you want to talk about your health "
+               "or anything on your mind. What would you like to ask today?"),
+        "rw": ("Muraho, {name}! Nishimiye kukubona. Ndi hano igihe cyose ushaka kuvuga ku buzima bwawe "
+               "cyangwa ikindi kigutera impungenge. Ni iki waba ushaka kubaza uyu munsi?"),
+    },
 }
 
 

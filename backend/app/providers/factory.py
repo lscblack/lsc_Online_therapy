@@ -64,6 +64,9 @@ def get_stt(settings: Settings | None = None) -> STTProvider:
         _require(s, OPENROUTER_API_KEY="openrouter_api_key")
         from app.providers.stt_openrouter import OpenRouterWhisperSTT
         return OpenRouterWhisperSTT(s.openrouter_api_key, s.stt_model, s.openrouter_base_url)
+    if s.stt_provider in ("whisper_local", "local"):
+        from app.providers.stt_whisper_local import LocalWhisperSTT
+        return LocalWhisperSTT(s.whisper_model_size, s.whisper_device, s.whisper_compute_type)
     if s.stt_provider == "digitalumuganda":
         from app.providers.stubs_digitalumuganda import DigitalUmugandaSTT
         return DigitalUmugandaSTT()

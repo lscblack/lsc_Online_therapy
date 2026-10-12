@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     stt_model: str = "openai/whisper-1"
     tts_model: str = "openai/tts-1"
+    # Local speech-to-text (faster-whisper) — used when stt_provider = "whisper_local".
+    # device/compute: "auto" picks CUDA GPU when available, else CPU int8. 8GB GPU can run "medium".
+    whisper_model_size: str = "small"
+    whisper_device: str = "auto"
+    whisper_compute_type: str = "auto"
     # Default cap on generated tokens per LLM reply. Required by OpenRouter credit checks:
     # with no cap it assumes the model's max context (e.g. 65536) and rejects the request as
     # unaffordable even when a normal-length answer is well within balance. Per-call opts override.

@@ -136,6 +136,19 @@ class ChatService:
         answer = guard.ensure_referral(copy, triage, refs, language=lang, force=True)
         return _Outcome(answer, [], {"crisis": True, "needs_referral": True, "in_knowledge": None})
 
+    async def _social(self, user: User, lang: str) -> _Outcome:
+        """A warm reply to a greeting / thanks — no retrieval, no referral, no 'see a doctor'."""
+        name = None
+        try:
+            profile = await ProfileService(self.session).get(user)
+            name = (profile.nickname or "").strip() or None if profile else None
+        except Exception:  # noqa: BLE001 - a greeting must never fail on a profile lookup
+            name = None
+        key = "greeting_reply_named" if name else "greeting_reply"
+        answer = t(key, lang).format(name=name) if name else t(key, lang)
+        return _Outcome(answer, [], {"crisis": False, "needs_referral": False,
+                                     "in_knowledge": None, "guard_reason": "social"})
+
     async def _normal(self, user: User, message: str, history: list[dict], triage: Triage,
                       lang: str) -> _Outcome:
         if not triage.in_scope:
@@ -176,8 +189,12 @@ class ChatService:
 
         await self._resolve_active_model()
         triage = await classify(message, lang, llm=self.llm)
-        out = (await self._crisis(triage, lang) if triage.is_crisis
-               else await self._normal(user, message, history, triage, lang))
+        if triage.is_crisis:
+            out = await self._crisis(triage, lang)
+        elif triage.category == str(Category.social):
+            out = await self._social(user, lang)
+        else:
+            out = await self._normal(user, message, history, triage, lang)
         flags = {**out.flags, "category": str(triage.category), "in_scope": triage.in_scope,
                  "flags": sorted(triage.flags), "triage_source": triage.source}
 

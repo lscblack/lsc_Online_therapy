@@ -206,9 +206,22 @@ async def test_out_of_scope_short_circuit(session, user, monkeypatch):
     monkeypatch.setattr(chat_mod, "retrieve", boom)
     llm = FakeLLM(["out_of_scope"])
     r = await ChatService(session, llm=llm).respond(
-        user, "hello, how are you today", language="en")
+        user, "can you help me with my algebra homework", language="en")
     assert r.answer == t("out_of_scope", "en") and r.safety_flags["in_scope"] is False
     assert len(llm.calls) == 1  # triage only
+
+
+async def test_greeting_gets_warm_reply_not_referral(session, user, monkeypatch):
+    import app.services.chat as chat_mod
+
+    async def boom(*a, **k):
+        raise AssertionError("retrieval must not run for a greeting")
+
+    monkeypatch.setattr(chat_mod, "retrieve", boom)
+    r = await ChatService(session, llm=FakeLLM(["x"])).respond(user, "hi there!", language="en")
+    assert r.answer == t("greeting_reply", "en")
+    assert r.safety_flags["needs_referral"] is False
+    assert r.safety_flags["category"] == "social"
 
 
 async def test_dosage_answer_gets_refusal_and_referral(session, user):

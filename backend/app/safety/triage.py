@@ -27,6 +27,7 @@ class Category(StrEnum):
     gbv_sexual_violence = "gbv_sexual_violence"
     medical_emergency = "medical_emergency"
     out_of_scope = "out_of_scope"
+    social = "social"  # a greeting / thanks / small-talk — reply warmly, no referral
     in_scope_srhr = "in_scope_srhr"  # SRHR, no more specific topic
     contraception = "contraception"
     abortion = "abortion"
@@ -153,6 +154,15 @@ _TOPICS: list[tuple[Category, re.Pattern]] = [
     (Category.pregnancy, _rx(r"\bpregnan", r"\bpregnant\b", r"\bmiscarr", r"gutwita", r"\bnatwite\b",
                              r"\binda\b", r"\bantenatal\b", r"\bkubyara\b")),
 ]
+# Pure greetings / thanks / small-talk (EN + RW). Checked only after topic/crisis/distress, so
+# "hi, I'm worried about ..." is still routed to the real topic, never treated as small-talk.
+_GREETING = _rx(
+    r"^\s*(hi+|he+y+|hello+|hiya|yo|sup|howdy|hey there|good (morning|afternoon|evening|day)|"
+    r"how (are|r) (you|u)|how's it going|what'?s up|thanks?|thank (you|u)|much appreciated|"
+    r"cheers|ok(ay)?|cool|nice|great|bye+|goodbye|see you|good night)\b",
+    r"^\s*(muraho|mwaramutse|mwiriwe|bite|amakuru|murakoze|urakoze|yego urakoze|witwa nde|"
+    r"uri he|uri gute|ni meza|murabeho|ijoro ryiza)\b",
+)
 _GENERAL_SRHR = _rx(
     r"\bpuberty\b", r"\bsex\b", r"\bsexual", r"\bvirgin", r"\breproductive\b", r"\bperiods?\b",
     r"\bbreast", r"\bpenis\b", r"\bvagina", r"\bcircumcis", r"\bmasturbat", r"\bwet dream",
@@ -221,6 +231,9 @@ def classify_rules(text: str) -> Triage:
         return Triage(Category.in_scope_srhr, False, True, frozenset(flags), "rules")
     if _DISTRESS_CUE.search(n):
         return Triage(Category.in_scope_srhr, False, True, frozenset({DISTRESS_CUE}), "rules")
+    # A pure greeting / thanks (no topic, no distress, no SRHR words) → warm social reply.
+    if _GREETING.search(n) and not _GENERAL_SRHR.search(n):
+        return Triage(Category.social, False, True, source="rules")
     if _OFF_TOPIC.search(n) and not _GENERAL_SRHR.search(n):
         return Triage(Category.out_of_scope, False, False, source="rules")
     return Triage(Category.in_scope_srhr, False, True, source="rules")
