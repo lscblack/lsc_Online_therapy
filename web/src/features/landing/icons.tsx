@@ -18,6 +18,10 @@ export function Icon({ name, size = 24 }: { name: string; size?: number }) {
       return (<svg {...s}><rect {...P} x="5" y="10" width="14" height="10" rx="2" /><path {...P} d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>);
     case "leaf":
       return (<svg {...s}><path {...P} d="M20 4C9 4 4 10 4 18c0 0 1 2 2 2 8 0 14-5 14-16z" /><path {...P} d="M4 20c6-8 10-10 14-12" /></svg>);
+    case "heart":
+      return (<svg {...s}><path {...P} d="M12 20s-7-4.4-9.2-8.6C1.3 8.3 2.8 5 6 5c2 0 3.2 1.2 4 2.3C10.8 6.2 12 5 14 5c3.2 0 4.7 3.3 3.2 6.4C19 15.6 12 20 12 20z" /></svg>);
+    case "check":
+      return (<svg {...s}><path {...P} d="M20 6L9 17l-5-5" /></svg>);
     default:
       return null;
   }

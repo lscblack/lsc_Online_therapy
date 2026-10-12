@@ -1,7 +1,7 @@
 .shell { display: flex; flex-direction: column; height: 100dvh; }
 .shell-body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
 .nav { flex: none; background: color-mix(in srgb, var(--color-surface) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--color-border); position: sticky; top: 0; z-index: 20; }
-.nav-inner { max-width: 1120px; margin: 0 auto; padding: var(--space-2) var(--space-4); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.nav-inner { width: 91.6667%; max-width: 1600px; margin: 0 auto; padding: var(--space-2) 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .nav-brand { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 800; font-size: var(--text-lg); color: var(--color-text); text-decoration: none; }
 .nav-logo { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--color-primary); color: var(--color-primary-contrast); font-weight: 800; }
 .nav-burger { display: none; }
