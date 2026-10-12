@@ -1,7 +1,7 @@
 import { apiFetch } from "./client";
 import { setTokens } from "../auth/tokenStore";
 import type {
-  AuditEntry, Chunk, Document, ModelConfig, ProviderModels, ReviewStatus, TestModelResult,
+  AuditEntry, Chunk, Document, ModelConfig, ProviderModels, SystemInfo, ReviewStatus, TestModelResult,
   TokenPair, User, UserRole,
 } from "./types";
 
@@ -30,6 +30,7 @@ export const admin = {
   disableUser: (id: string) =>
     apiFetch<User>(`/v1/admin/users/${encodeURIComponent(id)}/disable`, { ...A, method: "POST" }),
   listAudit: () => apiFetch<AuditEntry[]>("/v1/admin/audit", A),
+  getSystem: () => apiFetch<SystemInfo>("/v1/admin/system", A),
   getModels: () => apiFetch<ModelConfig>("/v1/admin/models", A),
   providerModels: (provider: string) =>
     apiFetch<ProviderModels>(`/v1/admin/models/${encodeURIComponent(provider)}`, A),

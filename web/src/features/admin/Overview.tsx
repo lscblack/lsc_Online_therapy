@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { admin } from "../../api/admin";
-import type { AuditEntry, Document, ModelConfig, User } from "../../api/types";
+import type { AuditEntry, Document, ModelConfig, SystemInfo, User } from "../../api/types";
 import { useAuth } from "../../auth/useAuth";
 import { useT } from "../../i18n/useT";
 import { adminErrorKey, isUnauthorized } from "./adminErrors";
@@ -34,14 +34,15 @@ export default function Overview({ onGo }: { onGo: (s: Section) => void }) {
   const [users, setUsers] = useState<User[] | null>(null);
   const [models, setModels] = useState<ModelConfig | null>(null);
   const [audit, setAudit] = useState<AuditEntry[] | null>(null);
+  const [sys, setSys] = useState<SystemInfo | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     try {
-      const [d, u, m, a] = await Promise.all([
-        admin.listDocuments(), admin.listUsers(), admin.getModels(), admin.listAudit(),
+      const [d, u, m, a, sy] = await Promise.all([
+        admin.listDocuments(), admin.listUsers(), admin.getModels(), admin.listAudit(), admin.getSystem(),
       ]);
-      setDocs(d); setUsers(u); setModels(m); setAudit(a); setErr(null);
+      setDocs(d); setUsers(u); setModels(m); setAudit(a); setSys(sy); setErr(null);
     } catch (e) {
       setErr(t(adminErrorKey(e)));
       if (isUnauthorized(e)) adminLogout();
@@ -100,6 +101,17 @@ export default function Overview({ onGo }: { onGo: (s: Section) => void }) {
           <div className="dash-stat-label">{t("ovActiveModel")}</div>
           <div className="dash-stat-model-id">{models ? `${models.active_provider} · ${models.active_model}` : "—"}</div>
           <span className="badge badge-green">{t("ovOperational")}</span>
+        </div>
+        <div className="card dash-stat dash-stat-model">
+          <div className="dash-stat-label">{t("ovSpeech")}</div>
+          <div className="dash-stat-model-id">
+            {sys ? `${sys.stt_provider === "whisper_local" ? `Whisper (${sys.whisper_model})` : sys.stt_provider}` : "—"}
+          </div>
+          {sys && (sys.stt_device === "cuda"
+            ? <span className="badge badge-green">{t("ovGpu")} ✓</span>
+            : sys.stt_device === "cpu"
+              ? <span className="badge badge-warn">{t("ovCpu")}</span>
+              : <span className="badge">{sys.stt_device}</span>)}
         </div>
       </div>
 

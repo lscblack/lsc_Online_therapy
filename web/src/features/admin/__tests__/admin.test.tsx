@@ -7,7 +7,7 @@ import { ApiError } from "../../../api/client";
 const api = vi.hoisted(() => ({
   login: vi.fn(), listDocuments: vi.fn(), uploadDocument: vi.fn(), reviewDocument: vi.fn(),
   reindexDocument: vi.fn(), me: vi.fn(), deleteDocument: vi.fn(), listUsers: vi.fn(), disableUser: vi.fn(), listAudit: vi.fn(),
-  getModels: vi.fn(), providerModels: vi.fn(), setModel: vi.fn(), testModel: vi.fn(),
+  getModels: vi.fn(), providerModels: vi.fn(), setModel: vi.fn(), testModel: vi.fn(), getSystem: vi.fn(),
 }));
 vi.mock("../../../api/admin", () => ({ admin: api }));
 vi.mock("../../../api/identity", () => ({ identity: { anon: vi.fn(async () => ({ anon_id: "a" })) } }));
@@ -57,6 +57,7 @@ beforeEach(() => {
     ],
   });
   api.providerModels.mockResolvedValue({ provider: "requesty", models: ["google/gemma-4-31b-it"] });
+  api.getSystem.mockResolvedValue({ stt_provider: "whisper_local", whisper_model: "small", stt_device: "cpu", cuda_available: false, cuda_devices: 0 });
 });
 
 describe("Admin panel", () => {

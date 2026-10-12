@@ -117,6 +117,26 @@ class AdminService:
     async def list_audit(self, limit: int = 100, offset: int = 0):
         return await self.audit.list(limit, offset)
 
+    @staticmethod
+    def system_info() -> dict:
+        """Runtime info for the dashboard: which speech-to-text runs, and whether the GPU (CUDA)
+        is active for it. `device` flips to 'cuda' automatically once the NVIDIA driver is loaded."""
+        s = get_settings()
+        cuda = 0
+        try:
+            import ctranslate2
+            cuda = ctranslate2.get_cuda_device_count()
+        except Exception:  # noqa: BLE001
+            cuda = 0
+        device = "cuda" if cuda > 0 else "cpu"
+        return {
+            "stt_provider": s.stt_provider,
+            "whisper_model": s.whisper_model_size,
+            "stt_device": device if s.stt_provider in ("whisper_local", "local") else "remote",
+            "cuda_available": cuda > 0,
+            "cuda_devices": cuda,
+        }
+
     # --- LLM provider/model management ---------------------------------------
 
     async def get_model_config(self) -> dict:

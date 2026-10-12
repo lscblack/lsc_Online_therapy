@@ -143,6 +143,11 @@ async def disable_user(user_id: uuid.UUID, user: User = Depends(_admin),
         raise _404("User") from e
 
 
+@router.get("/system")
+async def system_info(user: User = Depends(_admin)) -> dict:
+    return AdminService.system_info()
+
+
 @router.get("/models", response_model=ModelConfigOut)
 async def get_models(user: User = Depends(_admin),
                      session: AsyncSession = Depends(get_session)) -> ModelConfigOut:
