@@ -51,29 +51,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Column(
       children: [
         Expanded(
-          child: msgs.isEmpty
-              ? const _Welcome()
-              : Semantics(
-                  container: true,
-                  label: t('chat.thread'),
-                  child: ListView.builder(
+          child: RefreshIndicator(
+            // Pull down to reconnect (re-establish the identity against the backend).
+            onRefresh: () => ref.read(authProvider.notifier).ensureAnon().catchError((_) {}),
+            child: msgs.isEmpty
+                ? ListView(
                     key: const Key('chat-thread'),
-                    reverse: true,
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                    itemCount: msgs.length,
-                    itemBuilder: (_, i) {
-                      final m = msgs[msgs.length - 1 - i];
-                      final isLast = i == 0;
-                      return _MessageRow(
-                        key: ValueKey(m.id),
-                        m: m,
-                        onRetry: isLast
-                            ? () => ref.read(chatProvider.notifier).retry(m.id)
-                            : null,
-                      );
-                    },
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [_Welcome()],
+                  )
+                : Semantics(
+                    container: true,
+                    label: t('chat.thread'),
+                    child: ListView.builder(
+                      key: const Key('chat-thread'),
+                      reverse: true,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      itemCount: msgs.length,
+                      itemBuilder: (_, i) {
+                        final m = msgs[msgs.length - 1 - i];
+                        final isLast = i == 0;
+                        return _MessageRow(
+                          key: ValueKey(m.id),
+                          m: m,
+                          onRetry: isLast
+                              ? () => ref.read(chatProvider.notifier).retry(m.id)
+                              : null,
+                        );
+                      },
+                    ),
                   ),
-                ),
+          ),
         ),
         _Composer(
           controller: _text,

@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/i18n/i18n.dart';
 import '../chat/chat_screen.dart';
+import '../facilities/facilities_page.dart';
 import '../settings/settings_page.dart';
 import '../voice/voice_panel.dart';
 
-/// Bottom-nav scaffold: Chat, Voice, Settings.
+/// Bottom-nav scaffold: Chat, Voice, Nearby, Settings.
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
   @override
@@ -19,6 +20,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget _page() => switch (_index) {
     0 => const ChatScreen(key: ValueKey('page-chat')),
     1 => const VoicePanel(key: ValueKey('page-voice')),
+    2 => const FacilitiesPage(key: ValueKey('page-facilities')),
     _ => const SettingsPage(key: ValueKey('page-settings')),
   };
 
@@ -54,6 +56,11 @@ class _AppShellState extends ConsumerState<AppShell> {
             icon: const Icon(Icons.mic_none),
             selectedIcon: const Icon(Icons.mic),
             label: t('nav.voice'),
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.local_hospital_outlined),
+            selectedIcon: const Icon(Icons.local_hospital),
+            label: t('nav.nearby'),
           ),
           NavigationDestination(
             icon: const Icon(Icons.settings_outlined),

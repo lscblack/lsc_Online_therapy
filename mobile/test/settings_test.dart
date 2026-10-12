@@ -296,7 +296,7 @@ void main() {
     addTearDown(e.container.dispose);
     await t.pumpWidget(e.app);
     await t.pumpAndSettle();
-    expect(find.byType(NavigationDestination), findsNWidgets(3));
+    expect(find.byType(NavigationDestination), findsNWidgets(4));
     await t.tap(
       find.descendant(
         of: find.byType(NavigationBar),
