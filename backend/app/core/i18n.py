@@ -30,17 +30,20 @@ STRINGS: dict[str, dict[str, str]] = {
                "ntwongere inkomoko cyangwa kohereza ku muganga."),
     },
     "social_directive": {
-        "en": ("The user is greeting you or making small talk (e.g. 'hi', 'how are you', 'thanks'). "
-               "Reply like a warm, friendly human in 1–2 short sentences: greet back naturally, "
-               "answer how you are if asked, and gently invite them to ask anything about their "
-               "health. Vary your wording each time — do not repeat a fixed script. Do NOT give "
-               "medical facts unless they ask, and do NOT add citations or a referral."),
-        "rw": ("Umukoresha ari kugusuramutsa cyangwa kuvugana nawe mu buryo bworoshye (urugero "
-               "'muraho', 'amakuru', 'murakoze'). Subiza nk'umuntu ushyushye kandi w'inshuti mu "
-               "nteruro 1–2 ngufi: musuhuze mu buryo busanzwe, uvuge uko umeze iyo abajije, kandi "
-               "umutumire gato kubaza icyo ari cyo cyose ku buzima bwe. Hindura amagambo buri gihe "
-               "— ntusubiremo inyandiko imwe. NTUTANGE amakuru y'ubuvuzi atabisabye, kandi ntwongere "
-               "inkomoko cyangwa kohereza ku muganga."),
+        "en": ("The user is just chatting with you — a greeting, thanks, or a personal message like "
+               "'how are you', 'are you okay', 'who are you', or 'why aren't you talking to me'. "
+               "Reply like a warm, real friend in 1–2 short sentences. ACTUALLY respond to what they "
+               "said: if they ask how you are, say how you are; if they wonder why you're quiet, "
+               "reassure them warmly. Be natural and human. You may mention you can also help with "
+               "health when it fits, but DON'T force it — not every reply needs to steer to health, "
+               "and never repeat a fixed script. Do NOT add citations or a referral."),
+        "rw": ("Umukoresha ari kuganira nawe gusa — indamutso, gushimira, cyangwa ubutumwa bwihariye "
+               "nka 'amakuru', 'urakomeye', 'uri nde', cyangwa 'kuki udatubwira'. Subiza nk'inshuti "
+               "nyayo ishyushye mu nteruro 1–2. Subiza koko icyo yavuze: nabajije uko umeze, uvuge "
+               "uko umeze; niba yibaza impamvu uceceka, umwizeze mu bugwaneza. Ba uwo mu buryo "
+               "busanzwe, nk'umuntu. Ushobora kuvuga ko ushobora no gufasha ku buzima iyo bikwiye, "
+               "ariko ntubihatire — si buri gisubizo kigomba kugana ku buzima, kandi ntusubiremo "
+               "inyandiko imwe. Ntwongere inkomoko cyangwa kohereza ku muganga."),
     },
     "style": {
         "en": ("Style: answer like a caring, professional human health worker talking with a young "

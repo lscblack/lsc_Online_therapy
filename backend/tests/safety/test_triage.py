@@ -175,3 +175,18 @@ async def test_long_input_bounded_and_crisis_in_tail_found():
     text = ("hello " * 5000) + "I want to kill myself"
     t = await classify(text, "en", use_llm=False)
     assert t.is_crisis
+
+
+async def test_llm_refines_bare_message_to_social():
+    # "are you okay" has no topic/greeting-regex match -> bare in_scope_srhr; the LLM labels it
+    # social so the assistant can chat naturally instead of deflecting to health.
+    llm = FakeLLM(["social"])
+    t = await classify("are you okay", "en", llm=llm)
+    assert t.category == "social" and t.in_scope is True and t.is_crisis is False
+
+
+async def test_llm_social_cannot_hide_a_crisis():
+    # A message the model might call social still escalates to crisis when the LLM says so.
+    llm = FakeLLM(["crisis_self_harm"])
+    t = await classify("hey, can we talk", "en", llm=llm)
+    assert t.is_crisis is True
