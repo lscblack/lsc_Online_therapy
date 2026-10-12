@@ -45,12 +45,25 @@ flutter build web --dart-define=API_BASE=https://your-backend.example
 
 Output is in `build/web/`.
 
-Native builds are possible but need platform tooling. `flutter build apk`
-requires the Android SDK with accepted licenses (`flutter doctor
---android-licenses`); iOS needs Xcode. Voice needs the microphone permission,
-already declared (`RECORD_AUDIO` on Android, `NSMicrophoneUsageDescription` on
-iOS). Native device runs have not been verified here; the web build is the
-verified target.
+### Android APK for a physical phone
+
+```sh
+flutter doctor --android-licenses          # accept once
+flutter build apk --release --dart-define=API_BASE=http://<your-LAN-IP>:8099
+# output: build/app/outputs/flutter-apk/app-release.apk  — copy to the phone and install
+```
+
+**Two things a physical phone needs** (both already handled in this repo):
+- **The LAN IP, not a loopback.** A phone can't reach `127.0.0.1` (that's the phone) or
+  `10.0.2.2` (that's the Android *emulator*). Pass the host's LAN IP via `--dart-define`.
+  Run the backend with `--host 0.0.0.0` and make sure the phone is on the same Wi-Fi
+  (no "AP/client isolation" on the router).
+- **Cleartext HTTP.** Android blocks plain `http://` by default. `android:usesCleartextTraffic="true"`
+  is set in `android/app/src/main/AndroidManifest.xml` so the app can talk to an `http://LAN-IP` backend
+  in development. For production use `https://` and remove that flag.
+
+iOS needs Xcode. Voice needs the microphone permission, already declared
+(`RECORD_AUDIO` on Android, `NSMicrophoneUsageDescription` on iOS).
 
 ## Test
 
