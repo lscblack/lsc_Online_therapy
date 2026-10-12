@@ -5,6 +5,7 @@ import '../../core/i18n/i18n.dart';
 import '../../core/theme.dart';
 import '../../data/models/profile.dart';
 import '../../state/auth.dart';
+import '../../state/server.dart';
 import 'profile_edit.dart';
 import 'settings_actions.dart';
 
@@ -34,6 +35,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Profile _orig = const Profile();
   final _nick = TextEditingController();
   final _sens = TextEditingController();
+  final _server = TextEditingController();
+  bool _serverSaved = false;
   String _age = 'undisclosed';
   String? _gender, _pron, _tone;
   final List<String> _interests = [];
@@ -43,6 +46,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   void initState() {
     super.initState();
+    _server.text = ref.read(serverUrlProvider);
     _fetch();
   }
 
@@ -50,7 +54,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   void dispose() {
     _nick.dispose();
     _sens.dispose();
+    _server.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveServer() async {
+    await ref.read(serverUrlProvider.notifier).set(_server.text);
+    if (!mounted) return;
+    setState(() => _serverSaved = true);
+    // Re-establish identity against the (possibly new) server.
+    await _fetch();
   }
 
   Future<void> _fetch() async {
@@ -315,6 +328,43 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ],
             theme,
             note: t('wipe.note'),
+          ),
+          _card(
+            t('settings.connection'),
+            [
+              Text('${t('settings.server.current')}: ${ref.watch(serverUrlProvider)}',
+                  style: theme.textTheme.bodySmall),
+              const SizedBox(height: 8),
+              TextField(
+                key: const Key('set-server'),
+                controller: _server,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                onChanged: (_) => setState(() => _serverSaved = false),
+                decoration: InputDecoration(
+                  labelText: t('settings.server.label'),
+                  hintText: 'http://192.168.1.74:8099',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton(
+                  key: const Key('set-server-save'),
+                  onPressed: _saveServer,
+                  child: Text(t('btn.save')),
+                ),
+              ),
+              if (_serverSaved) ...[
+                const SizedBox(height: 8),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(t('settings.server.saved'), key: const Key('set-server-saved')),
+                ),
+              ],
+            ],
+            theme,
+            note: t('settings.server.note'),
           ),
         ],
       ),

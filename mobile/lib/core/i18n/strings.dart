@@ -46,6 +46,11 @@ const Map<String, Map<String, String>> kStrings = {
     'btn.save': 'Save',
     'btn.cancel': 'Cancel',
     'settings.theme': 'Theme',
+    'settings.connection': 'Connection',
+    'settings.server.label': 'Backend server URL',
+    'settings.server.note': "The Ubuzima backend address. On a phone use your computer's LAN IP, e.g. http://192.168.1.74:8099 (not 127.0.0.1 or 10.0.2.2). Leave blank to reset to the default.",
+    'settings.server.current': 'Currently using',
+    'settings.server.saved': 'Server URL updated.',
     'settings.appearance': 'Appearance',
     'settings.profile': 'About you',
     'settings.profile.note':
@@ -172,6 +177,11 @@ const Map<String, Map<String, String>> kStrings = {
     'btn.save': 'Bika',
     'btn.cancel': 'Bireke',
     'settings.theme': 'Isura',
+    'settings.connection': 'Guhuza',
+    'settings.server.label': 'Aderesi ya seriveri',
+    'settings.server.note': "Aderesi ya seriveri ya Ubuzima. Kuri telefoni koresha IP ya LAN ya mudasobwa yawe, urugero http://192.168.1.74:8099 (atari 127.0.0.1 cyangwa 10.0.2.2). Siga ubusa kugira usubize ku y'ibanze.",
+    'settings.server.current': 'Irakoresha',
+    'settings.server.saved': 'Aderesi ya seriveri yahinduwe.',
     'settings.appearance': 'Isura n\'ururimi',
     'settings.profile': 'Ibyawe',
     'settings.profile.note':

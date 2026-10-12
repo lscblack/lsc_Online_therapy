@@ -6,11 +6,14 @@ import '../data/endpoints/identity.dart';
 import '../data/endpoints/profile.dart';
 import '../data/endpoints/voice.dart';
 import '../data/token_store.dart';
+import 'server.dart';
 
 final tokenStoreProvider = Provider<TokenStore>((ref) => SecureTokenStore());
 
-final apiClientProvider =
-    Provider<ApiClient>((ref) => ApiClient(tokens: ref.watch(tokenStoreProvider)));
+final apiClientProvider = Provider<ApiClient>((ref) => ApiClient(
+      tokens: ref.watch(tokenStoreProvider),
+      baseUrl: ref.watch(serverUrlProvider),
+    ));
 
 final identityApiProvider = Provider<IdentityApi>((ref) =>
     IdentityApi(ref.watch(apiClientProvider), ref.watch(tokenStoreProvider)));
@@ -32,7 +35,8 @@ class AuthController extends Notifier<AuthState> {
 
   @override
   AuthState build() {
-    ref.read(apiClientProvider).onAuthExpired = () {
+    // Re-wire (and reset) when the API client changes, e.g. after the server URL is edited.
+    ref.watch(apiClientProvider).onAuthExpired = () {
       state = AuthState(ready: false, anonId: state.anonId);
       // Mint a fresh anonymous identity so chat/voice recover without a restart.
       // Single-flight; failures (offline) are retried by the next caller.

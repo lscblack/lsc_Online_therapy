@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/i18n/i18n.dart';
 import '../../state/auth.dart';
 import '../../state/profile.dart';
+import '../../state/server.dart';
 
 const _ages = ['under15', '15_17', '18_19', '20_24', '25_plus'];
 const _genders = ['female', 'male', 'nonbinary'];
@@ -110,6 +111,51 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     }
   }
 
+  /// When the backend is unreachable (e.g. a phone that can't hit the default address), let the
+  /// user set the server URL right here, then re-establish the identity.
+  Future<void> _editServer() async {
+    final t = ref.read(tProvider);
+    final ctrl = TextEditingController(text: ref.read(serverUrlProvider));
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(t('settings.connection')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(t('settings.server.note'), style: Theme.of(ctx).textTheme.bodySmall),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('ob-server-field'),
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: InputDecoration(
+                labelText: t('settings.server.label'),
+                hintText: 'http://192.168.1.74:8099',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(t('btn.cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(t('btn.save'))),
+        ],
+      ),
+    );
+    final value = ctrl.text;
+    ctrl.dispose();
+    if (save != true) return;
+    await ref.read(serverUrlProvider.notifier).set(value);
+    setState(() => _failed = false);
+    // Reconnect against the new server.
+    await ref.read(authProvider.notifier).ensureAnon().catchError((_) {
+      if (mounted) setState(() => _failed = true);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = ref.watch(tProvider);
@@ -164,11 +210,22 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 if (_failed)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Semantics(
-                      liveRegion: true,
-                      child: Text(t('ob.error'),
-                          key: const Key('ob-error'),
-                          style: TextStyle(color: theme.colorScheme.error)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Semantics(
+                          liveRegion: true,
+                          child: Text(t('ob.error'),
+                              key: const Key('ob-error'),
+                              style: TextStyle(color: theme.colorScheme.error)),
+                        ),
+                        TextButton.icon(
+                          key: const Key('ob-server'),
+                          onPressed: _busy ? null : _editServer,
+                          icon: const Icon(Icons.settings_ethernet, size: 18),
+                          label: Text(t('settings.connection')),
+                        ),
+                      ],
                     ),
                   ),
                 Padding(
