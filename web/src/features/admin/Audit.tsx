@@ -9,11 +9,14 @@ export default function Audit() {
   const { t } = useT();
   const { items, loading, err, refresh } = useAdminList<AuditEntry>(load);
   return (
-    <section aria-label={t("adminAudit")}>
-      <div className="admin-toolbar"><button type="button" className="btn" onClick={() => void refresh()}>{t("adminRefresh")}</button></div>
+    <section className="panel" aria-label={t("adminAudit")}>
+      <div className="panel-head">
+        <h3>{t("adminAudit")}</h3>
+        <div className="panel-actions"><button type="button" className="btn btn-sm" onClick={() => void refresh()}>{t("adminRefresh")}</button></div>
+      </div>
       {err && <p role="alert" className="admin-error">{err}</p>}
-      {loading && <p className="lead">{t("adminLoading")}</p>}
-      {!loading && !err && items.length === 0 && <p className="lead">{t("adminEmpty")}</p>}
+      {loading && <p className="muted">{t("adminLoading")}</p>}
+      {!loading && !err && items.length === 0 && <p className="muted">{t("adminEmpty")}</p>}
       {items.length > 0 && (
         <div className="table-wrap">
           <table className="admin-table">

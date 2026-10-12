@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import { useT } from "../../i18n/useT";
+import LangToggle from "../../components/LangToggle";
+import ThemeToggle from "../../components/ThemeToggle";
 import Audit from "./Audit";
 import Documents from "./Documents";
 import Login from "./Login";
@@ -29,7 +32,7 @@ export default function AdminPanel() {
   const current = all.find(([k]) => k === active);
   const who = full ? t("adminRoleAdmin") : t("adminRoleReviewer");
 
-  const Link = ({ k, label }: { k: Section; label: string }) => (
+  const NavItem = ({ k, label }: { k: Section; label: string }) => (
     <button type="button" className={`dash-link${active === k ? " active" : ""}`}
       aria-current={active === k ? "page" : undefined} onClick={() => setSection(k)}>{label}</button>
   );
@@ -40,9 +43,9 @@ export default function AdminPanel() {
         <div className="dash-brand"><span className="nav-logo" aria-hidden="true">U</span>{t("adminConsole")}</div>
         <nav className="dash-nav" aria-label={t("adminConsole")}>
           <div className="dash-nav-group">{t("ovMainMenu")}</div>
-          {main.map(([k, label]) => <Link key={k} k={k} label={label} />)}
+          {main.map(([k, label]) => <NavItem key={k} k={k} label={label} />)}
           {manage.length > 0 && <div className="dash-nav-group">{t("ovManage")}</div>}
-          {manage.map(([k, label]) => <Link key={k} k={k} label={label} />)}
+          {manage.map(([k, label]) => <NavItem key={k} k={k} label={label} />)}
         </nav>
         <div className="dash-side-card">
           <div className="dash-side-card-title">{t("ovKbTitle")}</div>
@@ -59,7 +62,9 @@ export default function AdminPanel() {
           </div>
           <div className="dash-top-tools">
             <input className="dash-search" type="search" placeholder={t("ovSearch")} aria-label={t("ovSearch")} />
-            <span className="dash-bell" aria-hidden="true">🔔</span>
+            <ThemeToggle />
+            <LangToggle />
+            <Link to="/" className="btn btn-sm dash-back">{t("ovBackToSite")}</Link>
             <div className="dash-profile">
               <span className="dash-avatar" aria-hidden="true">{(who[0] || "A").toUpperCase()}</span>
               <span className="dash-profile-meta">

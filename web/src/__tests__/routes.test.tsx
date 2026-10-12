@@ -14,10 +14,16 @@ function at(path: string) {
 beforeEach(() => localStorage.setItem("ubuzima.onboarded", "1"));
 
 describe("app routes + nav", () => {
-  it.each(["/", "/settings", "/admin"])("%s renders without crashing", (p) => {
+  it.each(["/", "/settings"])("%s renders with the public navbar", (p) => {
     at(p);
     expect(screen.getByRole("navigation", { name: en.navMain })).toBeInTheDocument();
     expect(screen.getByRole("main")).toBeInTheDocument();
+  });
+
+  it("/admin is a separate dashboard without the public navbar", () => {
+    at("/admin");
+    expect(screen.getByRole("main")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: en.navMain })).toBeNull();
   });
   it("nav links to Home, Chat, Settings and Admin", () => {
     at("/");

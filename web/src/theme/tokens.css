@@ -2,18 +2,18 @@
    Flat colours only: no gradients anywhere.
    Contrast (WCAG AA): text on bg >= 12:1, muted >= 5.5:1, contrast on primary >= 5:1. */
 :root {
-  --color-bg: #f1f7f3;
+  --color-bg: #eef8f2;               /* airy light-mint background */
   --color-surface: #ffffff;
-  --color-surface-2: #e6f1ea;
-  --color-surface-3: #d9ebe0;
-  --color-border: #cadfd2;
-  --color-text: #10231a;
-  --color-text-muted: #4b6459;
-  --color-primary: #117a53;          /* emerald/forest green */
-  --color-primary-strong: #0c5f41;
-  --color-primary-soft: #e0f0e8;
+  --color-surface-2: #e3f5ec;
+  --color-surface-3: #d3efe0;
+  --color-border: #cbe9d9;
+  --color-text: #10271d;
+  --color-text-muted: #4e6a5d;
+  --color-primary: #1aa06c;          /* fresh medium green (healthcare light green) */
+  --color-primary-strong: #0e7249;  /* darker — text on light + hover */
+  --color-primary-soft: #dcf4e8;    /* light mint tint */
   --color-primary-contrast: #ffffff;
-  --color-accent: #0f8f88;            /* teal-green, used sparingly for highlights */
+  --color-accent: #37b58a;           /* lighter leaf/teal green */
   --color-accent-contrast: #ffffff;
   --color-warn: #b7791f;
   --color-danger: #c0392b;
@@ -46,14 +46,14 @@
   --motion-slow: 450ms;
 
   /* Glassmorphism: frosted translucent surfaces over soft green light. */
-  --glass-bg: rgba(255, 255, 255, 0.62);
-  --glass-bg-strong: rgba(255, 255, 255, 0.78);
-  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-bg: rgba(255, 255, 255, 0.66);
+  --glass-bg-strong: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.7);
   --glass-blur: 16px;
-  --glass-shadow: 0 8px 30px rgba(16, 60, 44, 0.12);
-  --blob-1: rgba(17, 122, 83, 0.28);
-  --blob-2: rgba(15, 143, 136, 0.22);
-  --blob-3: rgba(100, 210, 160, 0.26);
+  --glass-shadow: 0 8px 30px rgba(16, 90, 60, 0.10);
+  --blob-1: rgba(26, 160, 108, 0.22);
+  --blob-2: rgba(55, 181, 138, 0.20);
+  --blob-3: rgba(140, 225, 180, 0.28);
   color-scheme: light;
 }
 

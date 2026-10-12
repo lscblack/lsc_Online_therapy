@@ -12,11 +12,14 @@ export default function Users() {
   const { items, loading, err, refresh, run } = useAdminList<User>(load);
   const [target, setTarget] = useState<User | null>(null);
   return (
-    <section aria-label={t("adminUsers")}>
-      <div className="admin-toolbar"><button type="button" className="btn" onClick={() => void refresh()}>{t("adminRefresh")}</button></div>
+    <section className="panel" aria-label={t("adminUsers")}>
+      <div className="panel-head">
+        <h3>{t("adminUsers")}</h3>
+        <div className="panel-actions"><button type="button" className="btn btn-sm" onClick={() => void refresh()}>{t("adminRefresh")}</button></div>
+      </div>
       {err && <p role="alert" className="admin-error">{err}</p>}
-      {loading && <p className="lead">{t("adminLoading")}</p>}
-      {!loading && !err && items.length === 0 && <p className="lead">{t("adminEmpty")}</p>}
+      {loading && <p className="muted">{t("adminLoading")}</p>}
+      {!loading && !err && items.length === 0 && <p className="muted">{t("adminEmpty")}</p>}
       {items.length > 0 && (
         <div className="table-wrap">
           <table className="admin-table">

@@ -195,6 +195,7 @@ const rw: Dict = {
   ovReviewStatus: "Imiterere y'isuzuma",
   ovRecentActivity: "Ibikorwa bya vuba",
   ovViewAll: "Reba byose",
+  ovBackToSite: "Subira ku rubuga",
   mdlActive: "Moderi ikora",
   mdlOverride: "ihinduwe n'intoki",
   mdlDefault: "iy'ibanze",

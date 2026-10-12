@@ -23,14 +23,17 @@ export default function Documents({ canDelete }: { canDelete: boolean }) {
   const [deleting, setDeleting] = useState<Document | null>(null);
 
   return (
-    <section aria-label={t("adminDocuments")}>
-      <div className="admin-toolbar">
-        <button type="button" className="btn btn-primary" onClick={() => setUploading(true)}>{t("adminUpload")}</button>
-        <button type="button" className="btn" onClick={() => void refresh()}>{t("adminRefresh")}</button>
+    <section className="panel" aria-label={t("adminDocuments")}>
+      <div className="panel-head">
+        <h3>{t("adminDocuments")}</h3>
+        <div className="panel-actions">
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setUploading(true)}>{t("adminUpload")}</button>
+          <button type="button" className="btn btn-sm" onClick={() => void refresh()}>{t("adminRefresh")}</button>
+        </div>
       </div>
       {err && <p role="alert" className="admin-error">{err}</p>}
-      {loading && <p className="lead">{t("adminLoading")}</p>}
-      {!loading && !err && items.length === 0 && <p className="lead">{t("adminEmpty")}</p>}
+      {loading && <p className="muted">{t("adminLoading")}</p>}
+      {!loading && !err && items.length === 0 && <p className="muted">{t("adminEmpty")}</p>}
       {items.length > 0 && (
         <div className="table-wrap">
           <table className="admin-table">

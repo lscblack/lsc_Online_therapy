@@ -7,12 +7,14 @@ import Settings from "./features/settings/Settings";
 export default function AppRoutes() {
   return (
     <Routes>
+      {/* Public site: shares the top navbar. */}
       <Route element={<Layout />}>
         <Route path="/" element={<Landing />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/settings" element={<Settings />} />
-        <Route path="/admin/*" element={<Admin />} />
       </Route>
+      {/* Admin dashboard: its own full-screen shell, no public navbar. */}
+      <Route path="/admin/*" element={<Admin />} />
     </Routes>
   );
 }

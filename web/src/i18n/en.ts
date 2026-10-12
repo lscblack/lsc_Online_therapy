@@ -193,6 +193,7 @@ const en = {
   ovReviewStatus: "Review status",
   ovRecentActivity: "Recent activity",
   ovViewAll: "View all",
+  ovBackToSite: "Back to site",
   mdlActive: "Active model",
   mdlOverride: "custom override",
   mdlDefault: "env default",

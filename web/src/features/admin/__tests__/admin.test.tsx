@@ -12,6 +12,8 @@ const api = vi.hoisted(() => ({
 vi.mock("../../../api/admin", () => ({ admin: api }));
 vi.mock("../../../api/identity", () => ({ identity: { anon: vi.fn(async () => ({ anon_id: "a" })) } }));
 
+import { MemoryRouter } from "react-router-dom";
+import { ThemeProvider } from "../../../theme/ThemeProvider";
 import { AuthProvider } from "../../../auth/useAuth";
 import AdminPanel from "../AdminPanel";
 
@@ -29,7 +31,7 @@ async function loginAs(role: "admin" | "reviewer" | "fail") {
   if (role === "fail") api.me.mockRejectedValue(new ApiError("forbidden", "x", 403));
   else api.me.mockResolvedValue({ role, email: "boss@x.org" });
   api.listUsers.mockResolvedValue([user({ id: "u2", email: "other@x.org", role: "user" })]);
-  render(<LangProvider><AuthProvider><AdminPanel /></AuthProvider></LangProvider>);
+  render(<MemoryRouter><ThemeProvider><LangProvider><AuthProvider><AdminPanel /></AuthProvider></LangProvider></ThemeProvider></MemoryRouter>);
   fireEvent.change(screen.getByLabelText(en.adminEmail), { target: { value: "boss@x.org" } });
   fireEvent.change(screen.getByLabelText(en.adminPassword), { target: { value: "pw" } });
   fireEvent.click(screen.getByRole("button", { name: en.login }));
@@ -66,7 +68,7 @@ describe("Admin panel", () => {
 
   it("401 on login shows invalid credentials, stays on login", async () => {
     api.login.mockRejectedValue(new ApiError("unauthorized", "no", 401));
-    render(<LangProvider><AuthProvider><AdminPanel /></AuthProvider></LangProvider>);
+    render(<MemoryRouter><ThemeProvider><LangProvider><AuthProvider><AdminPanel /></AuthProvider></LangProvider></ThemeProvider></MemoryRouter>);
     fireEvent.change(screen.getByLabelText(en.adminEmail), { target: { value: "a@b.c" } });
     fireEvent.change(screen.getByLabelText(en.adminPassword), { target: { value: "bad" } });
     fireEvent.click(screen.getByRole("button", { name: en.login }));

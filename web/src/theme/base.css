@@ -15,7 +15,7 @@ h1 { font-size: var(--text-2xl); }
 h2 { font-size: var(--text-xl); }
 h3 { font-size: var(--text-lg); }
 p { margin: 0 0 var(--space-3); }
-a { color: var(--color-primary); }
+a { color: var(--color-primary-strong); }
 
 .page { width: 91.6667%; max-width: 1200px; margin: 0 auto; padding: var(--space-5) 0; }
 /* Content spans 11/12 of the viewport (wider, professional), capped on very large screens. */
