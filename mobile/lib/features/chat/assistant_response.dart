@@ -57,10 +57,26 @@ class AssistantResponseView extends ConsumerWidget {
       container: true,
       // Announce once the reply is complete, not per token.
       liveRegion: !streaming,
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          const _AssistantAvatar(),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: _content(context, cs, done),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _content(BuildContext context, ColorScheme cs, bool done) {
+    return [
           if (failed) ...[
             // Keep any partial text visible above the error card.
             if (text.isNotEmpty) ...[
@@ -105,7 +121,28 @@ class AssistantResponseView extends ConsumerWidget {
               CitationChips(citations: citations),
             ],
           ],
-        ],
+    ];
+  }
+}
+
+/// Small round brand avatar ("U") shown to the left of assistant replies.
+class _AssistantAvatar extends StatelessWidget {
+  const _AssistantAvatar();
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return ExcludeSemantics(
+      child: Container(
+        width: 32,
+        height: 32,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
+        child: Text('U',
+            style: TextStyle(
+                color: cs.onPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                height: 1)),
       ),
     );
   }
@@ -122,11 +159,12 @@ class AssistantBubble extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(6),
-          topRight: Radius.circular(20),
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
+          topLeft: Radius.circular(18),
+          topRight: Radius.circular(18),
+          bottomLeft: Radius.circular(4), // tighter "tail" corner
+          bottomRight: Radius.circular(18),
         ),
       ),
       child: child,
@@ -144,19 +182,66 @@ class UserBubble extends StatelessWidget {
       key: const Key('user-bubble'),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: cs.primaryContainer,
+        color: cs.primary,
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(6),
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
+          topLeft: Radius.circular(18),
+          topRight: Radius.circular(18),
+          bottomLeft: Radius.circular(18),
+          bottomRight: Radius.circular(4), // tighter "tail" corner
         ),
       ),
       child: SelectableText(text,
           style: Theme.of(context)
               .textTheme
               .bodyLarge
-              ?.copyWith(color: cs.onPrimaryContainer)),
+              ?.copyWith(color: cs.onPrimary)),
+    );
+  }
+}
+
+/// Per-message meta shown under a sent bubble: time + delivered/seen status.
+/// The time is captured once (stateful) so it stays stable across rebuilds.
+class SentMeta extends ConsumerStatefulWidget {
+  const SentMeta({super.key, required this.seen});
+  final bool seen;
+  @override
+  ConsumerState<SentMeta> createState() => _SentMetaState();
+}
+
+class _SentMetaState extends ConsumerState<SentMeta> {
+  final DateTime _at = DateTime.now();
+
+  String get _time {
+    final h = _at.hour.toString().padLeft(2, '0');
+    final m = _at.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = ref.watch(tProvider);
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final label = widget.seen ? t('chat.seen') : t('chat.delivered');
+    final color = cs.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, right: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(_time, style: tt.labelSmall?.copyWith(color: color)),
+          const SizedBox(width: 6),
+          Text(label, style: tt.labelSmall?.copyWith(color: color)),
+          const SizedBox(width: 3),
+          ExcludeSemantics(
+            child: Icon(
+              widget.seen ? Icons.done_all : Icons.done,
+              size: 14,
+              color: widget.seen ? cs.primary : color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

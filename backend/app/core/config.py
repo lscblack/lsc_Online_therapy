@@ -53,6 +53,26 @@ class Settings(BaseSettings):
     retention_days: int = 30
     retrieval_min_score: float = 0.3
     storage_dir: str = "./var/uploads"
+
+    # --- Jev (TypeSafe System One) — structured decisions in the RAG pipeline -------------
+    # Empty key => Jev is OFF and the pipeline uses its existing LLM triage + plain retrieval.
+    typesafe_api_key: str = ""
+    jev_model: str = "jev-latest"
+    jev_triage_enabled: bool = True   # calibrated category + confidence to refine rules triage
+    jev_rerank_enabled: bool = True   # drop injected/irrelevant passages, re-rank by relevance
+    jev_timeout_s: float = 6.0
+    jev_concurrency: int = 8          # max parallel passage scorings
+    jev_max_chars: int = 2000         # cap on query/message length sent to Jev
+    jev_passage_chars: int = 2000     # cap on each passage's text
+    # When retrieving for a Jev re-rank, pull this many candidates then filter down to the best.
+    jev_rerank_candidates: int = 10
+    # Passage routing thresholds (nouls, 0..1). See providers.jev.PassageVerdict.accept.
+    jev_relevance_min: float = 0.45       # below this: drop
+    jev_relevance_strong: float = 0.75    # at/above this: keep even without strong evidence
+    jev_evidence_min: float = 0.55        # at/above this (and relevant): keep
+    jev_injection_max: float = 0.70       # above this: drop as prompt-injection
+    # Triage: below this confidence on a non-crisis in-scope answer, prefer a referral.
+    jev_triage_confidence_floor: float = 0.55
     # In-process rate limits (requests/minute; <=0 disables). Not shared across workers.
     # Comma-separated proxy IPs/CIDRs whose X-Forwarded-For is trusted for the limiter's client IP.
     # Empty (default) = ignore the header and use the socket peer.

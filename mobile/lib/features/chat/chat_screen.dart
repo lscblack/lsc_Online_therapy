@@ -75,6 +75,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         return _MessageRow(
                           key: ValueKey(m.id),
                           m: m,
+                          // A sent message reads as "seen" once something follows it.
+                          seen: !isLast,
                           onRetry: isLast
                               ? () => ref.read(chatProvider.notifier).retry(m.id)
                               : null,
@@ -96,8 +98,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 }
 
 class _MessageRow extends ConsumerWidget {
-  const _MessageRow({super.key, required this.m, required this.onRetry});
+  const _MessageRow(
+      {super.key, required this.m, required this.onRetry, this.seen = false});
   final ChatMessage m;
+  final bool seen;
   final VoidCallback? onRetry;
 
   @override
@@ -110,7 +114,14 @@ class _MessageRow extends ConsumerWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxW.clamp(0, 560)),
         child: isUser
-            ? UserBubble(text: m.text)
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  UserBubble(text: m.text),
+                  SentMeta(seen: seen),
+                ],
+              )
             : AssistantResponseView(
                 text: m.text,
                 citations: m.citations,
@@ -220,7 +231,8 @@ class _Composer extends ConsumerWidget {
             key: const Key('send-button'),
             tooltip: t('btn.send'),
             onPressed: enabled ? onSend : null,
-            icon: const Icon(Icons.send),
+            icon: const Icon(Icons.send_rounded),
+            iconSize: 22,
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           ),
         ],

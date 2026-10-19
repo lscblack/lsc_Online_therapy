@@ -129,12 +129,14 @@ class AdminService:
         except Exception:  # noqa: BLE001
             cuda = 0
         device = "cuda" if cuda > 0 else "cpu"
+        from app.providers.jev import get_jev
         return {
             "stt_provider": s.stt_provider,
             "whisper_model": s.whisper_model_size,
             "stt_device": device if s.stt_provider in ("whisper_local", "local") else "remote",
             "cuda_available": cuda > 0,
             "cuda_devices": cuda,
+            "jev": get_jev().status(),
         }
 
     # --- LLM provider/model management ---------------------------------------

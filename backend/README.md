@@ -111,3 +111,32 @@ multilingual-e5 model, and Deepgram are integration/production concerns (`pytest
 Go-live gates still deferred: a real aiortc offer/answer smoke on the target host, a public TURN
 with TLS, and load testing of concurrent sessions (the registry and reaper are per-process, so
 run a single worker or add sticky routing).
+
+## Jev (TypeSafe System One) — structured decisions in the RAG pipeline
+
+[Jev](https://docs.typesafe.ai) is a "System One" model: instead of free-form text it returns
+typed, schema-valid answers with **calibrated probabilities/confidence** (and, by design, no
+hallucination or type errors). We use it as an *additive* safety signal in two places, and it
+**fails soft** everywhere — no key / SDK error / timeout → the pipeline keeps its existing
+LLM-triage + plain-retrieval behaviour. Jev is never the only path to a safe answer.
+
+1. **Triage refinement** (`app/safety/triage.py` → `_jev_refine`). After the deterministic
+   rules, Jev returns a calibrated category + confidence. Same contract as the LLM path: it can
+   **escalate to crisis** or sharpen a bare in-scope result, but a rules-detected crisis is
+   final and is never downgraded. Low confidence on a non-crisis in-scope answer sets
+   `low_confidence`, which makes that turn prefer a referral.
+2. **Passage filtering / re-rank** (`app/rag/jev_rerank.py`, wired in `services/chat.py`). After
+   pgvector retrieval, Jev scores each passage (relevant / answer-evidence / prompt-injection
+   nouls) and routes in code to **drop injected or irrelevant chunks** and **re-order the rest by
+   relevance** before they reach the generator. If filtering removes everything, the turn
+   degrades to a safe referral (as an out-of-knowledge turn would).
+
+**Enable it.** Set `TYPESAFE_API_KEY` (create one at console.typesafe.ai). With no key Jev is
+OFF. Toggles/thresholds live in `app/core/config.py` (`JEV_*`): `JEV_MODEL` (default
+`jev-latest`), `JEV_TRIAGE_ENABLED`, `JEV_RERANK_ENABLED`, `JEV_RERANK_CANDIDATES`,
+`JEV_RELEVANCE_MIN`, `JEV_EVIDENCE_MIN`, `JEV_INJECTION_MAX`, `JEV_TRIAGE_CONFIDENCE_FLOOR`.
+Status shows at `GET /v1/admin/system` (`jev: {configured, model, triage, rerank}`) and per-turn
+in `safety_flags` (`triage_source: "jev"`, `triage_confidence`, `low_confidence`).
+
+**Tests.** `tests/test_jev.py` covers escalation, confidence gating, passage routing and the
+fail-soft path with the SDK stubbed (no network). Dependency: `typesafe-sdk` (in `pyproject`).

@@ -19,9 +19,10 @@ export default function Landing() {
             <h1 className="lx-title">{c.heroTitle}</h1>
             <p className="lx-sub">{c.heroSub}</p>
             <div className="lx-cta">
-              <Link to="/chat" className="btn btn-primary">{c.ctaStart}</Link>
-              <a href="#how" className="btn btn-ghost">{c.ctaLearn}</a>
+              <Link to="/chat" className="btn btn-primary lx-cta-pill">{c.ctaStart}</Link>
+              <Link to="/chat" className="btn lx-cta-ghost lx-cta-pill"><Icon name="mic" size={18} /> {c.ctaVoice}</Link>
             </div>
+            <a href="#how" className="lx-learn-link">{c.ctaLearn}</a>
             <div className="lx-hero-stats">
               {c.stats.map((s) => (
                 <div key={s.label} className="lx-hero-stat">

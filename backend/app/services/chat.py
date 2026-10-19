@@ -18,6 +18,7 @@ from app.core.i18n import normalize_language, t
 from app.models import ConversationMode, User
 from app.providers.factory import get_llm
 from app.rag.prompt import assemble
+from app.rag.jev_rerank import rerank as jev_rerank
 from app.rag.retrieval import RetrievalResult, retrieve
 from app.repositories.conversations import ConversationRepository
 from app.providers.registry import ACTIVE_MODEL_KEY, ACTIVE_PROVIDER_KEY
@@ -237,8 +238,13 @@ class ChatService:
 
     @staticmethod
     def _build_flags(out: "_Outcome", triage: Triage) -> dict:
-        return {**out.flags, "category": str(triage.category), "in_scope": triage.in_scope,
-                "flags": sorted(triage.flags), "triage_source": triage.source}
+        f = {**out.flags, "category": str(triage.category), "in_scope": triage.in_scope,
+             "flags": sorted(triage.flags), "triage_source": triage.source}
+        if triage.confidence is not None:
+            f["triage_confidence"] = round(triage.confidence, 3)
+        if triage.low_confidence:
+            f["low_confidence"] = True
+        return f
 
     async def _persist(self, user: User, conv, message: str, out: "_Outcome", flags: dict,
                        lang: str, mode: ConversationMode = "text") -> ChatResult:
@@ -261,12 +267,22 @@ class ChatService:
             flags["persisted"] = False
         return ChatResult(out.answer, out.citations, cid, flags, lang)
 
+    async def _retrieve_ranked(self, message: str, lang: str) -> RetrievalResult:
+        """pgvector retrieval, then (if Jev is configured) drop injected/irrelevant passages and
+        re-rank by relevance. Pulls more candidates when Jev will filter them down."""
+        from app.core.config import get_settings
+        from app.providers.jev import get_jev
+        s = get_settings()
+        k = s.jev_rerank_candidates if get_jev().rerank_enabled else 6
+        retrieval = await retrieve(self.session, message, lang, k=k)
+        return await jev_rerank(message, retrieval)
+
     async def _normal(self, user: User, message: str, history: list[dict], triage: Triage,
                       lang: str) -> _Outcome:
         if not triage.in_scope:
             return await self._offscope(message, history, lang)
         try:
-            retrieval = await retrieve(self.session, message, lang)
+            retrieval = await self._retrieve_ranked(message, lang)
             profile = await ProfileService(self.session).get(user)
             raw = await self._generate(assemble(message, retrieval, history, profile, lang))
         except Exception as exc:  # noqa: BLE001 - provider/DB failure degrades to a safe referral
@@ -275,7 +291,7 @@ class ChatService:
             return await self._degraded(triage, lang)
         g = guard.ground(raw, retrieval, language=lang, category=triage)
         answer = g.answer
-        sensitive = guard.is_sensitive(triage)
+        sensitive = guard.is_sensitive(triage) or triage.low_confidence
         if g.needs_referral or sensitive:
             refs = await self._referrals(triage)
             answer = guard.ensure_referral(answer, triage, refs, language=lang,
@@ -359,7 +375,7 @@ class ChatService:
                                         "in_knowledge": None, "guard_reason": "out_of_scope"})
         else:
             try:
-                retrieval = await retrieve(self.session, message, lang)
+                retrieval = await self._retrieve_ranked(message, lang)
                 profile = await ProfileService(self.session).get(user)
             except Exception as exc:  # noqa: BLE001
                 logger.error("chat retrieval failed (%s); degrading", type(exc).__name__)
@@ -399,7 +415,7 @@ class ChatService:
                         raw = "".join(acc)
                         g = guard.ground(raw, retrieval, language=lang, category=triage)
                         answer = g.answer
-                        sensitive = guard.is_sensitive(triage)
+                        sensitive = guard.is_sensitive(triage) or triage.low_confidence
                         if g.needs_referral or sensitive:
                             refs = await self._referrals(triage)
                             answer = guard.ensure_referral(answer, triage, refs, language=lang,

@@ -8,4 +8,6 @@ export interface ChatMessage {
   meta?: ChatResponse;
   /** The user text that produced this assistant message (for retry). */
   userText?: string;
+  /** Epoch ms when the message was created (for per-message time + day separators). */
+  at?: number;
 }

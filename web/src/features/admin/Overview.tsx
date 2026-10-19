@@ -8,6 +8,15 @@ import { AreaChart, Donut } from "./charts";
 
 type Section = "overview" | "docs" | "users" | "audit" | "models";
 
+/** Small colored stat-card icons (docs / pending review / users). Stroke = currentColor. */
+function StatIcon({ i }: { i: number }) {
+  const p = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const s = { width: 22, height: 22, viewBox: "0 0 24 24", "aria-hidden": true } as const;
+  if (i === 0) return <svg {...s}><path {...p} d="M6 3h8l4 4v14H6z" /><path {...p} d="M14 3v4h4M9 13h6M9 17h6" /></svg>;
+  if (i === 1) return <svg {...s}><circle {...p} cx="12" cy="12" r="9" /><path {...p} d="M12 7v5l3 2" /></svg>;
+  return <svg {...s}><circle {...p} cx="9" cy="8" r="3" /><path {...p} d="M3 20a6 6 0 0 1 12 0M16 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-5-5.9" /></svg>;
+}
+
 /** Monthly cumulative document counts (last 6 months) from created_at, for the trend chart. */
 function monthlySeries(docs: Document[]): { data: number[]; labels: string[] } {
   const now = new Date();
@@ -58,11 +67,13 @@ export default function Overview({ onGo }: { onGo: (s: Section) => void }) {
   const indexedPct = total ? Math.round((indexed / total) * 100) : 0;
   const approvedPct = total ? Math.round((approved / total) * 100) : 0;
   const series = monthlySeries(docs ?? []);
+  const growth = series.data[series.data.length - 1] - series.data[0];
+  const growthPct = series.data[0] ? Math.round((growth / series.data[0]) * 100) : (growth > 0 ? 100 : 0);
 
-  const cards = [
-    { k: "docs" as Section, value: total, label: t("ovDocuments"), sub: `${indexed} ${t("ovIndexed")}`, pct: indexedPct },
-    { k: "docs" as Section, value: pending, label: t("ovPending"), sub: t("ovNeedsReview"), pct: total ? Math.round((pending / total) * 100) : 0 },
-    { k: "users" as Section, value: users?.length ?? 0, label: t("ovUsers"), sub: t("ovRegistered"), pct: null },
+  const cards: { k: Section; value: number; label: string; sub: string; pct: number | null; delta: number | null }[] = [
+    { k: "docs", value: total, label: t("ovDocuments"), sub: `${indexed} ${t("ovIndexed")}`, pct: indexedPct, delta: growthPct },
+    { k: "docs", value: pending, label: t("ovPending"), sub: t("ovNeedsReview"), pct: total ? Math.round((pending / total) * 100) : 0, delta: null },
+    { k: "users", value: users?.length ?? 0, label: t("ovUsers"), sub: t("ovRegistered"), pct: null, delta: null },
   ];
 
   return (
@@ -83,18 +94,25 @@ export default function Overview({ onGo }: { onGo: (s: Section) => void }) {
         <div className="dash-banner-badge"><Donut value={indexedPct} size={120} label={t("ovIndexed")} /></div>
       </div>
 
-      {/* Stat cards */}
+      {/* Stat cards — EzMart style: big number + colored icon badge + delta chip */}
       <div className="dash-stats">
         {cards.map((c, i) => (
           <button key={i} type="button" className="card dash-stat" onClick={() => onGo(c.k)}>
             <div className="dash-stat-top">
               <div>
-                <div className="dash-stat-value">{c.value}</div>
                 <div className="dash-stat-label">{c.label}</div>
+                <div className="dash-stat-value">{c.value}</div>
               </div>
-              {c.pct !== null && <div className="dash-stat-donut"><Donut value={c.pct} size={64} /></div>}
+              <span className={`dash-stat-icon tone-${i}`} aria-hidden="true"><StatIcon i={i} /></span>
             </div>
-            <div className="muted dash-stat-sub">{c.sub}</div>
+            <div className="dash-stat-foot">
+              <span className="muted dash-stat-sub">{c.sub}</span>
+              {c.delta !== null && (
+                <span className={`delta ${c.delta >= 0 ? "delta-up" : "delta-down"}`}>
+                  {c.delta >= 0 ? "↑" : "↓"} {Math.abs(c.delta)}%
+                </span>
+              )}
+            </div>
           </button>
         ))}
         <div className="card dash-stat dash-stat-model">
@@ -112,6 +130,13 @@ export default function Overview({ onGo }: { onGo: (s: Section) => void }) {
             : sys.stt_device === "cpu"
               ? <span className="badge badge-warn">{t("ovCpu")}</span>
               : <span className="badge">{sys.stt_device}</span>)}
+        </div>
+        <div className="card dash-stat dash-stat-model">
+          <div className="dash-stat-label">{t("ovJev")}</div>
+          <div className="dash-stat-model-id">{sys?.jev?.model || "—"}</div>
+          <span className={`badge ${sys?.jev?.configured ? "badge-green" : "badge-off"}`}>
+            {sys?.jev?.configured ? t("ovOn") : t("ovOff")}
+          </span>
         </div>
       </div>
 

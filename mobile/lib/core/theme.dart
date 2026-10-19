@@ -3,25 +3,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'prefs.dart';
 
-// Warm emerald/forest green palette (not a clinical "hospital" green).
-// Solid colours only: no gradients anywhere.
+// Unified emerald/teal 2026 palette — shared language with the web app
+// (see docs/redesign-2026.md). Solid colours only: no gradients anywhere.
+// bg -> surface (page), surface(#fff) -> surfaceContainerHighest (cards/bubbles).
 const _lightScheme = ColorScheme(
   brightness: Brightness.light,
-  primary: Color(0xFF117A53), // emerald/forest green
+  primary: Color(0xFF15A06A), // emerald green
   onPrimary: Color(0xFFFFFFFF),
-  primaryContainer: Color(0xFFCDEBDC),
-  onPrimaryContainer: Color(0xFF00210F),
-  secondary: Color(0xFF0F8F88), // teal-green accent
+  primaryContainer: Color(0xFFC6EFDA),
+  onPrimaryContainer: Color(0xFF053E27),
+  secondary: Color(0xFF2BB6A3), // teal-green accent
   onSecondary: Color(0xFFFFFFFF),
   secondaryContainer: Color(0xFFBFECE7),
   onSecondaryContainer: Color(0xFF00201E),
-  tertiary: Color(0xFF3B6A4A),
+  tertiary: Color(0xFF0C7A4E), // primary-strong (deep emerald)
   onTertiary: Color(0xFFFFFFFF),
   error: Color(0xFFC0392B),
   onError: Color(0xFFFFFFFF),
-  surface: Color(0xFFF4FAF6),
-  onSurface: Color(0xFF10231A),
-  surfaceContainerHighest: Color(0xFFE2F0E8),
+  surface: Color(0xFFEEF8F2), // page background (bg)
+  onSurface: Color(0xFF10271D), // text
+  surfaceContainerHighest: Color(0xFFFFFFFF), // cards / bubbles (surface)
   onSurfaceVariant: Color(0xFF42564C),
   outline: Color(0xFF6F8378),
   outlineVariant: Color(0xFFC5DBCF),
@@ -37,13 +38,13 @@ const _darkScheme = ColorScheme(
   onSecondary: Color(0xFF00201E),
   secondaryContainer: Color(0xFF00504B),
   onSecondaryContainer: Color(0xFFBFECE7),
-  tertiary: Color(0xFF9FD6B0),
+  tertiary: Color(0xFF63DCB0), // primary-strong on dark
   onTertiary: Color(0xFF07371F),
-  error: Color(0xFFFFB4AB),
-  onError: Color(0xFF690005),
-  surface: Color(0xFF0A1712),
-  onSurface: Color(0xFFE6F2EC),
-  surfaceContainerHighest: Color(0xFF1C352B),
+  error: Color(0xFFFF6B5E),
+  onError: Color(0xFF5B0D07),
+  surface: Color(0xFF0A1712), // page background (bg)
+  onSurface: Color(0xFFE6F2EC), // text
+  surfaceContainerHighest: Color(0xFF0F201A), // cards / bubbles (surface)
   onSurfaceVariant: Color(0xFFBFD3C8),
   outline: Color(0xFF899B90),
   outlineVariant: Color(0xFF42564C),
@@ -72,19 +73,36 @@ ThemeData buildTheme(Brightness b) {
     ),
     cardTheme: CardThemeData(
       color: scheme.surfaceContainerHighest,
-      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: scheme.shadow.withValues(alpha: 0.12),
+      elevation: 1,
+      margin: EdgeInsets.zero,
       shape: const RoundedRectangleBorder(borderRadius: radius),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size(48, 48),
-        shape: const RoundedRectangleBorder(borderRadius: radius),
+        // Pill buttons, ≥44px tap target (shared component rule).
+        shape: const StadiumBorder(),
       ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        shape: const StadiumBorder(),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(shape: const StadiumBorder()),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: scheme.surfaceContainerHighest,
-      border: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide.none),
+      // Rounded pill-ish field, no hard border.
+      border: const OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(28)),
+        borderSide: BorderSide.none,
+      ),
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: scheme.surfaceContainerHighest,

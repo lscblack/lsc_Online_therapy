@@ -27,11 +27,13 @@ export function AreaChart({ data, labels, w = 640, h = 220 }: { data: number[]; 
   const padB = 24;
   const pts = points(data, w, h - padB);
   const area = `${pts} ${w - 2},${h - padB} 2,${h - padB}`;
+  const last = pts.split(" ").pop()?.split(",").map(Number) ?? [0, 0];
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} role="img" aria-label="trend" className="area">
       <polygon points={area} fill="currentColor" opacity="0.14" />
       <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="2.5"
         strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last[0]} cy={last[1]} r="4.5" fill="currentColor" stroke="var(--color-surface)" strokeWidth="2" />
       {labels && labels.map((l, i) => {
         const x = 2 + (i * (w - 4)) / Math.max(labels.length - 1, 1);
         return <text key={i} x={x} y={h - 6} fontSize="10" textAnchor="middle" fill="var(--color-text-muted)">{l}</text>;

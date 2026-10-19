@@ -65,11 +65,21 @@ class LiveVoicePage extends ConsumerWidget {
                                 constraints: BoxConstraints(
                                     maxWidth: MediaQuery.of(context).size.width * 0.82),
                                 decoration: BoxDecoration(
-                                  color: isUser ? cs.primaryContainer : cs.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(16),
+                                  color: isUser ? cs.primary : cs.surfaceContainerHighest,
+                                  border: isUser
+                                      ? null
+                                      : Border.all(
+                                          color: cs.outlineVariant.withValues(alpha: 0.6)),
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: const Radius.circular(18),
+                                    topRight: const Radius.circular(18),
+                                    bottomLeft: Radius.circular(isUser ? 18 : 4),
+                                    bottomRight: Radius.circular(isUser ? 4 : 18),
+                                  ),
                                 ),
                                 child: isUser
-                                    ? Text(turn.text)
+                                    ? Text(turn.text,
+                                        style: tt.bodyLarge?.copyWith(color: cs.onPrimary))
                                     : MarkdownText(turn.text,
                                         style: tt.bodyLarge?.copyWith(color: cs.onSurface)),
                               ),
@@ -82,7 +92,10 @@ class LiveVoicePage extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Column(
                     children: [
-                      _Orb(color: _orbColor(s.phase, cs), active: s.running),
+                      _Orb(
+                          color: _orbColor(s.phase, cs),
+                          foreground: cs.onPrimary,
+                          active: s.running),
                       const SizedBox(height: 10),
                       Semantics(
                         liveRegion: true,
@@ -135,8 +148,9 @@ class LiveVoicePage extends ConsumerWidget {
 }
 
 class _Orb extends StatefulWidget {
-  const _Orb({required this.color, required this.active});
+  const _Orb({required this.color, required this.foreground, required this.active});
   final Color color;
+  final Color foreground;
   final bool active;
   @override
   State<_Orb> createState() => _OrbState();
@@ -168,7 +182,7 @@ class _OrbState extends State<_Orb> with SingleTickerProviderStateMixin {
                 BoxShadow(color: widget.color.withValues(alpha: 0.4), blurRadius: 20, spreadRadius: 4),
             ],
           ),
-          child: const Icon(Icons.mic, color: Colors.white, size: 28),
+          child: Icon(Icons.mic, color: widget.foreground, size: 28),
         );
       },
     );

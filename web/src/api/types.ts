@@ -59,6 +59,8 @@ export interface ProviderModels { provider: string; models: string[] }
 export interface SystemInfo {
   stt_provider: string; whisper_model: string; stt_device: string;
   cuda_available: boolean; cuda_devices: number;
+  /** Jev decision layer (triage + rerank). Optional: older backends omit it. */
+  jev?: { configured: boolean; model: string; triage: boolean; rerank: boolean };
 }
 export interface TestModelResult {
   provider: string; model: string; ok: boolean; latency_ms: number; sample: string; error: string | null;

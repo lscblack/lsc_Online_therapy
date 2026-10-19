@@ -5,6 +5,7 @@ export interface LandingCopy {
   heroTitle: string;
   heroSub: string;
   ctaStart: string;
+  ctaVoice: string;
   ctaLearn: string;
   stats: { value: string; label: string }[];
   servicesTitle: string;
@@ -37,6 +38,7 @@ const en: LandingCopy = {
   heroSub:
     "Ubuzima is a youth-friendly companion for sexual and reproductive health. Ask anything by chat or voice, in English or Kinyarwanda — and get clear, judgement-free answers drawn from reviewed health information, with a doctor's referral whenever it matters.",
   ctaStart: "Start chatting",
+  ctaVoice: "Talk by voice",
   ctaLearn: "How it works",
   stats: [
     { value: "EN + RW", label: "English & Kinyarwanda" },
@@ -115,6 +117,7 @@ const rw: LandingCopy = {
   heroSub:
     "Ubuzima ni inshuti y'urubyiruko ku buzima bw'imyororokere. Baza ikibazo cyose ukoresheje ikiganiro cyangwa ijwi, mu Cyongereza cyangwa Ikinyarwanda — uhabwe ibisubizo byumvikana, bitagucira urubanza, bishingiye ku makuru y'ubuzima yasuzumwe, n'ukwoherezwa ku muganga igihe bikenewe.",
   ctaStart: "Tangira ikiganiro",
+  ctaVoice: "Vugira mu ijwi",
   ctaLearn: "Uko bikora",
   stats: [
     { value: "EN + RW", label: "Icyongereza & Ikinyarwanda" },

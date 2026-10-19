@@ -9,26 +9,45 @@
   --color-border: #cbe9d9;
   --color-text: #10271d;
   --color-text-muted: #4e6a5d;
-  --color-primary: #1aa06c;          /* fresh medium green (healthcare light green) */
-  --color-primary-strong: #0e7249;  /* darker — text on light + hover */
+  --color-primary: #15a06a;          /* unified emerald brand (matches mobile) */
+  --color-primary-strong: #0c7a4e;  /* darker — text on light + hover */
   --color-primary-soft: #dcf4e8;    /* light mint tint */
   --color-primary-contrast: #ffffff;
-  --color-accent: #37b58a;           /* lighter leaf/teal green */
+  --color-accent: #2bb6a3;           /* teal-green accent */
   --color-accent-contrast: #ffffff;
   --color-warn: #b7791f;
   --color-danger: #c0392b;
   --color-focus: #117a53;
 
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
+  /* Admin console only: warm amber accent for KPI emphasis + chart highlights. */
+  --color-admin-accent: #f59e0b;
+  --color-admin-accent-strong: #b45309;
+  --color-admin-accent-soft: #fef3c7;
+  --color-admin-accent-contrast: #3b2600;
+  /* Deep emerald hero band (white text passes AA in both themes). */
+  --color-hero: #0a5a3c;
+  --color-hero-2: #0c7249;
+  --color-hero-contrast: #ffffff;
+
+  /* Gradients — used on brand, primary buttons, hero, dashboard accents */
+  --grad-primary: linear-gradient(135deg, #1aa06c 0%, #0b6e46 100%);
+  --grad-accent: linear-gradient(135deg, #2bb6a3 0%, #0f8f6e 100%);
+  --grad-hero: linear-gradient(135deg, #0c7249 0%, #0a5a3c 55%, #073b28 100%);
+  --grad-admin: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  --grad-surface: linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-2) 100%);
+
+  /* Rounding — used only where it reads as intentional (controls, avatars, chips, cards). */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
   --radius-pill: 999px;
 
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
   --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
 
-  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
   --text-xs: 0.78rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
@@ -74,6 +93,13 @@
   --color-warn: #e0b05a;
   --color-danger: #ff6b5e;
   --color-focus: #45cf9f;
+  --color-admin-accent: #fbbf24;
+  --color-admin-accent-strong: #fcd34d;
+  --color-admin-accent-soft: #3a2e10;
+  --color-admin-accent-contrast: #1a1200;
+  --grad-primary: linear-gradient(135deg, #45cf9f 0%, #1f9f73 100%);
+  --grad-accent: linear-gradient(135deg, #35c7bd 0%, #159e86 100%);
+  --grad-admin: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
   --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.6);
@@ -105,6 +131,10 @@
     --color-warn: #e0b05a;
     --color-danger: #ff6b5e;
     --color-focus: #45cf9f;
+    --color-admin-accent: #fbbf24;
+    --color-admin-accent-strong: #fcd34d;
+    --color-admin-accent-soft: #3a2e10;
+    --color-admin-accent-contrast: #1a1200;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
     --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
     --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.6);

@@ -68,7 +68,9 @@ class Triage:
     is_crisis: bool
     in_scope: bool
     flags: frozenset[str] = field(default_factory=frozenset)
-    source: str = "rules"  # rules | llm
+    source: str = "rules"  # rules | llm | jev
+    confidence: float | None = None  # Jev's calibrated confidence in the category (0..1), if any
+    low_confidence: bool = False     # Jev confidence below the configured floor -> prefer referral
 
     @property
     def sensitive(self) -> bool:
@@ -289,17 +291,52 @@ async def _llm_label(text: str, llm) -> Category | None:
         return None
 
 
+async def _jev_refine(text: str, rules: Triage) -> Triage | None:
+    """Refine a non-crisis rules result with Jev's calibrated category + confidence. Same
+    escalation contract as the LLM path (escalate to crisis, or refine a bare in_scope_srhr),
+    plus it carries Jev's confidence and a low_confidence flag through for the referral guard.
+    Returns None when Jev is disabled, unavailable, or returns an unknown label (fail to LLM)."""
+    from app.core.config import get_settings
+    from app.providers.jev import get_jev
+
+    client = get_jev()
+    if not client.triage_enabled:
+        return None
+    jt = await client.triage(text)
+    if jt is None:
+        return None
+    try:
+        cat = Category(jt.category)
+    except ValueError:
+        return None
+    low = jt.confidence < get_settings().jev_triage_confidence_floor
+    if cat in CRISIS_CATEGORIES:  # Jev may escalate (rules crisis already returned before this)
+        return Triage(cat, True, True, rules.flags, "jev", jt.confidence)
+    if rules.category == Category.in_scope_srhr and not rules.flags:
+        if cat == Category.out_of_scope:
+            return Triage(Category.out_of_scope, False, False, source="jev",
+                          confidence=jt.confidence)
+        return Triage(cat, False, True, rules.flags, "jev", jt.confidence, low_confidence=low)
+    # Keep the rules topic/flags, but annotate Jev's confidence so a low-confidence SRHR answer
+    # still prefers a referral downstream.
+    return Triage(rules.category, rules.is_crisis, rules.in_scope, rules.flags, rules.source,
+                  jt.confidence, low_confidence=low and rules.in_scope and not rules.is_crisis)
+
+
 async def classify(text: str, language: str | None = None, llm=None, use_llm: bool = True) -> Triage:  # noqa: ARG001
-    """Rules first; LLM (injectable via `llm`, else the configured provider) may only escalate
-    to crisis or refine a topic-less in-scope result. `language` is a hint only: rules run in
-    both languages regardless so code-switched / mislabelled input is still caught."""
+    """Rules first; then Jev (if configured) or the LLM may only escalate to crisis or refine a
+    topic-less in-scope result. `language` is a hint only: rules run in both languages regardless
+    so code-switched / mislabelled input is still caught."""
     rules = classify_rules(text)
-    # Crisis is final. For EVERY non-crisis message the LLM is consulted so it can escalate to
+    # Crisis is final. For EVERY non-crisis message a refiner is consulted so it can escalate to
     # crisis (topic/flag/distress/out_of_scope results included); it can only refine topic or
     # out_of_scope when rules gave a bare in_scope_srhr with no flags/distress cue.
     if rules.is_crisis or not use_llm:
         return rules
-    label = await _llm_label(text, llm)
+    jev = await _jev_refine(text, rules)  # calibrated, structured; preferred when a key is set
+    if jev is not None:
+        return jev
+    label = await _llm_label(text, llm)  # fallback: free-text LLM classifier
     if label is None:
         return rules
     if label in CRISIS_CATEGORIES:

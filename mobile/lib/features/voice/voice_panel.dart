@@ -101,11 +101,18 @@ class VoicePanel extends ConsumerWidget {
                     liveRegion: true,
                     child: Text(status, style: tt.titleSmall),
                   ),
-                  if (s.phase == VoicePhase.recording)
+                  if (s.phase == VoicePhase.recording) ...[
+                    const SizedBox(height: 12),
+                    const _Waveform(active: true),
+                    const SizedBox(height: 8),
                     Text(_mmss(s.elapsed),
                         key: const Key('voice-elapsed'),
                         style: tt.bodyMedium?.copyWith(
                             fontFeatures: const [FontFeature.tabularFigures()])),
+                  ] else if (s.playing) ...[
+                    const SizedBox(height: 12),
+                    const _Waveform(active: true),
+                  ],
                 ]),
               ),
               const SizedBox(height: 16),
@@ -186,6 +193,91 @@ class _PlaybackRow extends ConsumerWidget {
         constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       ),
     ]);
+  }
+}
+
+/// Simple animated level/waveform indicator. A row of rounded bars that
+/// ripple while active; static (no animation) when reduce-motion is on.
+class _Waveform extends StatefulWidget {
+  const _Waveform({required this.active});
+  final bool active;
+  @override
+  State<_Waveform> createState() => _WaveformState();
+}
+
+class _WaveformState extends State<_Waveform>
+    with SingleTickerProviderStateMixin {
+  static const _bars = 11;
+  // Fixed per-bar phase offsets so the ripple looks organic, not uniform.
+  static const _offsets = [
+    0.0, 0.6, 0.2, 0.9, 0.35, 0.75, 0.15, 0.5, 0.85, 0.3, 0.65
+  ];
+  late final AnimationController _c = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 900));
+
+  void _sync() {
+    final animate = widget.active && !MediaQuery.disableAnimationsOf(context);
+    if (animate && !_c.isAnimating) {
+      _c.repeat();
+    } else if (!animate && _c.isAnimating) {
+      _c.stop();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(_Waveform old) {
+    super.didUpdateWidget(old);
+    _sync();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return ExcludeSemantics(
+      child: SizedBox(
+        key: const Key('voice-waveform'),
+        height: 36,
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) => Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              for (var i = 0; i < _bars; i++)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2.5),
+                  child: Container(
+                    width: 5,
+                    height: 8 + 26 * _level(i),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.55 + 0.45 * _level(i)),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  double _level(int i) {
+    if (!_c.isAnimating) return 0.4; // calm, static resting state
+    final v = (_c.value + _offsets[i]) % 1.0;
+    return v < 0.5 ? v * 2 : (1 - v) * 2;
   }
 }
 

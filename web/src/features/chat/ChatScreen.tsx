@@ -62,7 +62,8 @@ export default function ChatScreen() {
 
   const onSend = useCallback((text: string) => {
     const aid = nextId();
-    setMessages((ms) => [...ms, { id: nextId(), role: "user", text, status: "done" }, { id: aid, role: "assistant", text: "", status: "streaming", userText: text }]);
+    const now = Date.now();
+    setMessages((ms) => [...ms, { id: nextId(), role: "user", text, status: "done", at: now }, { id: aid, role: "assistant", text: "", status: "streaming", userText: text, at: now }]);
     void run(text, aid);
   }, [run]);
 
@@ -70,17 +71,26 @@ export default function ChatScreen() {
 
   return (
     <main className="chat">
-      <header className="bar chat-bar">
-        <h1>{t("appName")}</h1>
-        <div className="bar-actions">
-          <button type="button" className="voice-toggle" aria-pressed={voiceOpen} onClick={() => setVoiceOpen((v) => !v)}>
-            {voiceOpen ? t("voiceClose") : t("voiceOpen")}
-          </button>
+      <header className="chat-header">
+        <div className="chat-header-id">
+          <div className="chat-header-avatar" aria-hidden="true">U</div>
+          <div className="chat-header-meta">
+            <span className="chat-header-name">{t("appName")}</span>
+            <span className="chat-header-presence"><i className="presence-dot" aria-hidden="true" />{t("chatPresence")}</span>
           </div>
+        </div>
+        <div className="chat-header-actions">
+          <button type="button" className="chat-header-btn" aria-pressed={voiceOpen} onClick={() => setVoiceOpen((v) => !v)} title={voiceOpen ? t("voiceClose") : t("voiceOpen")}>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" />
+            </svg>
+            <span className="sr-only">{voiceOpen ? t("voiceClose") : t("voiceOpen")}</span>
+          </button>
+        </div>
       </header>
       <MessageList messages={messages} nickname={nickname} onRetry={onRetry} busy={busy} />
       {voiceOpen && <VoicePanel conversationId={convId.current} onConversationId={(id) => { convId.current = id; }} />}
-      <Composer disabled={busy} onSend={onSend} />
+      <Composer disabled={busy} onSend={onSend} onVoice={() => setVoiceOpen((v) => !v)} voiceOpen={voiceOpen} />
     </main>
   );
 }

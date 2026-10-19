@@ -12,6 +12,7 @@ dependencies = [
   "pydantic-settings",
   "pgvector",
   "httpx",
+  "typesafe-sdk>=0.7",   # Jev (System One) structured decisions in the RAG pipeline
   # later tasks
   "sentence-transformers",
   "cryptography",

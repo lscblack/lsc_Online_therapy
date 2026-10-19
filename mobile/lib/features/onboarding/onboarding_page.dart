@@ -202,7 +202,12 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                       ),
                       child: KeyedSubtree(
                         key: ValueKey(_step),
-                        child: _stepBody(t, theme),
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: _stepBody(t, theme),
+                          ),
+                        ),
                       ),
                     ),
                   ),
